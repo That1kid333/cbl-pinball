@@ -116,13 +116,14 @@ function resize(){
   TX=(W-TW)/2;TY=28;SCALE=TW/400;initTable();
 }
 
-// Physics — tuned for realistic pinball feel
-// Stronger gravity = ball feels heavy, falls naturally
-// More friction = ball decelerates on table surface
-// Lower bounce = walls don't ping-pong the ball
-// Lower bumper bounce = bumpers give a kick, not a cannon shot
-const GRAVITY=0.08,FRICTION=0.995,BOUNCE=0.35,BUMPER_BOUNCE=1.0;
-const FLIPPER_POWER=10,FLIPPER_HOLD_POWER=1.5; // active flip vs resting on flipper
+// Physics — based on real pinball and top canvas pinball games
+// Gravity 0.12 = simulates ~6.5° table incline (ball rolls toward drain naturally)
+// Friction 0.9985 = polished wood surface, ball rolls smoothly but slows over time
+// Bounce 0.5 = rubber bumper rails absorb some energy but still lively
+// Bumper bounce 1.3 = pop bumpers give satisfying kick without chaos
+const GRAVITY=0.12,FRICTION=0.9985,BOUNCE=0.5,BUMPER_BOUNCE=1.3;
+const FLIPPER_POWER=11,FLIPPER_HOLD_POWER=1.5; // active flip vs resting on flipper
+const MAX_BALL_SPEED=15; // speed cap prevents physics breaking
 
 // Character sprites
 const charImgs={};let charImgsLoaded=0;
@@ -181,16 +182,19 @@ function resetBall(){
 function addMultiball(){
   multiballActive=true;multiballSound();
   showStatus('\u{1F525} MULTIBALL! \u{1F525}');
-  let mb1=createBall(200,300,true);mb1.inLane=false;mb1.vx=1.5;mb1.vy=-2;balls.push(mb1);
-  let mb2=createBall(200,300,true);mb2.inLane=false;mb2.vx=-1.5;mb2.vy=-2.5;balls.push(mb2);
+  let mb1=createBall(200,300,true);mb1.inLane=false;mb1.vx=2.5;mb1.vy=-4;balls.push(mb1);
+  let mb2=createBall(200,300,true);mb2.inLane=false;mb2.vx=-2.5;mb2.vy=-5;balls.push(mb2);
 }
 function launch(){
   if(!balls.length||balls[0].active)return;
   balls[0].active=true;launching=false;
   // Power-based launch: hold longer = more power (max 20)
-  // Light tap = weak dribble, full hold = rocket to the top
-  const pwr=Math.max(plungerPower,2); // minimum so ball always moves
-  const launchVy=-(pwr*0.35+2); // ranges from -2.7 (tap) to -9 (full power)
+  // Math: with gravity 0.12, ball needs vy≈-13 to reach top (y=35 from y=700)
+  // Full power (20) → vy=-14 (reaches top with margin)
+  // Light tap (2) → vy=-4.1 (dribbles partway up lane)
+  // Medium (10) → vy=-8.5 (reaches mid-table)
+  const pwr=Math.max(plungerPower,2);
+  const launchVy=-(pwr*0.55+3); // ranges from -4.1 (tap) to -14 (full hold)
   balls[0].vy=launchVy;balls[0].vx=0;
   balls[0].inLane=true;
   ballSaveTimer=300;
@@ -296,6 +300,9 @@ function updateBall(ball){
   ball.trail.forEach(t=>t.life-=0.08);
   
   ball.vy+=GRAVITY;ball.vx*=FRICTION;ball.vy*=FRICTION;
+  // Speed cap — prevents ball from going haywire after rapid bumper hits
+  const spd=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
+  if(spd>MAX_BALL_SPEED){const scale=MAX_BALL_SPEED/spd;ball.vx*=scale;ball.vy*=scale}
   ball.x+=ball.vx;ball.y+=ball.vy;
 
   // Walls & Shooter Lane
@@ -303,7 +310,7 @@ function updateBall(ball){
   const RAIL_TOP=35; // where the curved rail bends the ball left
   const LANE_CX=(plungerL+plungerR)/2; // lane center x
   
-  // Left wall
+  // Left wall — rubber rail bounce
   if(ball.x-ball.r<wallL){ball.x=wallL+ball.r;ball.vx=Math.abs(ball.vx)*BOUNCE}
   
   // Shooter lane physics (right side channel)
@@ -320,8 +327,8 @@ function updateBall(ball){
       ball.x=wallR-ball.r-5; // place ball just inside playfield right wall
       // Curve the ball left and slightly down — simulating the rail arc
       const speed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
-      ball.vx=-Math.max(speed*0.55,3); // leftward push proportional to launch power
-      ball.vy=Math.max(Math.abs(ball.vy)*0.2,0.5); // gentle downward
+      ball.vx=-Math.max(speed*0.6,4); // leftward push proportional to launch power
+      ball.vy=Math.max(Math.abs(ball.vy)*0.15,0.8); // gentle downward
     }
     // If ball falls back to drain in the lane, let it drain normally
     if(ball.y>740){ball.inLane=false;return false}
@@ -339,11 +346,14 @@ function updateBall(ball){
     if(col){
       ball.x+=col.nx*(col.overlap+2);ball.y+=col.ny*(col.overlap+2);
       const speed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
-      // Realistic bumper: reflects direction and adds a moderate kick
-      // Doesn't override ball speed entirely — adds to it
-      const kickSpeed=Math.max(speed*0.5,1.5)*BUMPER_BOUNCE+1.5;
-      ball.vx=col.nx*kickSpeed;
-      ball.vy=col.ny*kickSpeed;
+      // Proper reflection: reflect velocity along collision normal + add bumper kick
+      // dot product of velocity with normal
+      const dot=ball.vx*col.nx+ball.vy*col.ny;
+      // Reflect: v - 2*(v·n)*n, then add bumper impulse
+      ball.vx=ball.vx-2*dot*col.nx;ball.vy=ball.vy-2*dot*col.ny;
+      // Apply bumper boost (pop bumper impulse)
+      const boost=Math.max(speed*0.3,1.5)*BUMPER_BOUNCE;
+      ball.vx+=col.nx*boost;ball.vy+=col.ny*boost;
       b.cd=8; // 8-frame cooldown prevents rapid re-hits
       addScore(b.pts);bumpSound();addFlasher(b);updateCombo();
       if(particles.length<200){for(let i=0;i<8;i++)spawnParticle(b.x,b.y,b.glow)}
@@ -357,25 +367,34 @@ function updateBall(ball){
     }
   }
 
-  // Flippers — realistic angular momentum transfer
+  // Flippers — proper reflection + angular momentum when active
   const lc=flipperCollision(flippers.left,ball.x,ball.y,ball.r,'left');
-  if(lc){ball.x+=lc.nx*lc.overlap;ball.y+=lc.ny*lc.overlap;
-    const power=lc.flipping?FLIPPER_POWER:FLIPPER_HOLD_POWER;
-    // Ball velocity depends on where it hits the flipper (tip = more power)
-    ball.vx=lc.nx*power*0.7;ball.vy=lc.ny*power-1.5;if(lc.flipping)flipSound()}
+  if(lc){ball.x+=lc.nx*(lc.overlap+1);ball.y+=lc.ny*(lc.overlap+1);
+    if(lc.flipping){
+      // Active flip: strong upward launch with direction based on contact normal
+      ball.vx=lc.nx*FLIPPER_POWER*0.6+2;ball.vy=-FLIPPER_POWER*0.85;flipSound();
+    }else{
+      // Ball rolling on resting flipper — gentle redirect
+      const dot=ball.vx*lc.nx+ball.vy*lc.ny;
+      ball.vx-=2*dot*lc.nx*0.5;ball.vy=-Math.abs(ball.vy)*FLIPPER_HOLD_POWER*0.3;
+    }}
   const rc=flipperCollision(flippers.right,ball.x,ball.y,ball.r,'right');
-  if(rc){ball.x+=rc.nx*rc.overlap;ball.y+=rc.ny*rc.overlap;
-    const power=rc.flipping?FLIPPER_POWER:FLIPPER_HOLD_POWER;
-    ball.vx=rc.nx*power*0.7;ball.vy=rc.ny*power-1.5;if(rc.flipping)flipSound()}
+  if(rc){ball.x+=rc.nx*(rc.overlap+1);ball.y+=rc.ny*(rc.overlap+1);
+    if(rc.flipping){
+      ball.vx=rc.nx*FLIPPER_POWER*0.6-2;ball.vy=-FLIPPER_POWER*0.85;flipSound();
+    }else{
+      const dot=ball.vx*rc.nx+ball.vy*rc.ny;
+      ball.vx-=2*dot*rc.nx*0.5;ball.vy=-Math.abs(ball.vy)*FLIPPER_HOLD_POWER*0.3;
+    }}
 
-  // Slingshots — angled kickers above flippers
+  // Slingshots — rubber-band kickers above flippers (like real pinball)
   if(ball.x>50&&ball.x<120&&ball.y>600&&ball.y<670){
     const wx=ball.x-50,wy=ball.y-600;
-    if(wx<wy*0.5&&ball.vx<1){ball.vx+=2.5;ball.vy-=1.5;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
+    if(wx<wy*0.5&&ball.vx<2){ball.vx+=3.5;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
   if(ball.x>260&&ball.x<330&&ball.y>600&&ball.y<670){
     const wx=330-ball.x,wy=ball.y-600;
-    if(wx<wy*0.5&&ball.vx>-1){ball.vx-=2.5;ball.vy-=1.5;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
+    if(wx<wy*0.5&&ball.vx>-2){ball.vx-=3.5;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
 
   // Drop targets (3 bank at y=500)
@@ -403,11 +422,11 @@ function updateBall(ball){
   // Kickbacks (outlane saves)
   if(ball.y>700&&ball.y<730){
     if(ball.x<45&&kickbackLeft){
-      kickbackLeft=false;ball.vx=3;ball.vy=-4;kickbackSound();
+      kickbackLeft=false;ball.vx=4;ball.vy=-7;kickbackSound();
       showStatus('\u{1F6E1}\uFE0F LEFT KICKBACK!');addScore(50);
     }
     if(ball.x>335&&ball.x<345&&kickbackRight){
-      kickbackRight=false;ball.vx=-3;ball.vy=-4;kickbackSound();
+      kickbackRight=false;ball.vx=-4;ball.vy=-7;kickbackSound();
       showStatus('\u{1F6E1}\uFE0F RIGHT KICKBACK!');addScore(50);
     }
   }
@@ -422,7 +441,7 @@ function updateBall(ball){
   // Drain
   if(ball.y>750){
     if(ballSaveTimer>0&&balls.length<=1){
-      ball.x=200;ball.y=600;ball.vx=0;ball.vy=-3;
+      ball.x=200;ball.y=600;ball.vx=0;ball.vy=-6;
       showStatus('\u{1F4AB} BALL SAVED!');ballSaveTimer=0;return true;
     }
     return false;
