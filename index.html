@@ -139,16 +139,16 @@ let bumpers=[],flippers={};
 
 function initTable(){
   bumpers=[
-    {x:200,y:250,r:35,pts:500,name:'buckee',color:'#FFD700',label:'B',glow:'#FFD700'},
-    {x:120,y:300,r:30,pts:300,name:'listy',color:'#44ff44',label:'L',glow:'#44ff44'},
-    {x:280,y:300,r:30,pts:300,name:'citty',color:'#8888ff',label:'C',glow:'#8888ff'},
-    {x:160,y:180,r:18,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35'},
-    {x:240,y:180,r:18,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35'},
-    {x:200,y:400,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466'},
-    {x:130,y:440,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466'},
-    {x:270,y:440,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466'},
-    {x:150,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff'},
-    {x:250,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff'},
+    {x:200,y:230,r:35,pts:500,name:'buckee',color:'#FFD700',label:'B',glow:'#FFD700',cd:0},
+    {x:110,y:310,r:30,pts:300,name:'listy',color:'#44ff44',label:'L',glow:'#44ff44',cd:0},
+    {x:290,y:310,r:30,pts:300,name:'citty',color:'#8888ff',label:'C',glow:'#8888ff',cd:0},
+    {x:160,y:170,r:18,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35',cd:0},
+    {x:240,y:170,r:18,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35',cd:0},
+    {x:200,y:400,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
+    {x:130,y:440,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
+    {x:270,y:440,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
+    {x:150,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
+    {x:250,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
   ];
   flippers={
     left:{x:140,y:680,len:55,angle:0.4,restAngle:0.4,activeAngle:-0.6},
@@ -206,7 +206,7 @@ function showStatus(text){
 
 function updateCombo(){
   combo++;comboTimer=120;
-  if(combo>=3){multiplier=1+Math.floor(combo/3)*0.5;comboSound(combo)}
+  if(combo>=3){multiplier=Math.min(5,1+Math.floor(combo/3)*0.5);comboSound(Math.min(combo,10))}
   comboEl.textContent='COMBO x'+combo;comboEl.classList.add('active');
   multEl.textContent=multiplier>1?'x'+multiplier.toFixed(1):'';
 }
@@ -291,17 +291,19 @@ function updateBall(ball){
     ball.vy=Math.abs(ball.vy)*BOUNCE;ball.vx=-Math.abs(ball.vx)*0.5-2;
   }
 
-  // Bumpers
+  // Bumpers (with cooldown to prevent infinite bounce trap)
   for(const b of bumpers){
+    if(b.cd>0){b.cd--;continue}
     const col=circleCircle(ball.x,ball.y,ball.r,b.x,b.y,b.r);
     if(col){
-      ball.x+=col.nx*col.overlap;ball.y+=col.ny*col.overlap;
+      ball.x+=col.nx*(col.overlap+2);ball.y+=col.ny*(col.overlap+2);
       const speed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
       ball.vx=col.nx*Math.max(speed,3)*BUMPER_BOUNCE;
       ball.vy=col.ny*Math.max(speed,3)*BUMPER_BOUNCE;
+      b.cd=8; // 8-frame cooldown prevents rapid re-hits
       addScore(b.pts);bumpSound();addFlasher(b);updateCombo();
-      for(let i=0;i<8;i++)spawnParticle(b.x,b.y,b.glow);
-      spawnScorePopup(b.x,b.y-b.r-10,'+'+b.pts,b.glow);
+      if(particles.length<200){for(let i=0;i<8;i++)spawnParticle(b.x,b.y,b.glow)}
+      if(scorePopups.length<20)spawnScorePopup(b.x,b.y-b.r-10,'+'+b.pts,b.glow);
       if(b.name){
         bucketHits[b.name]=true;
         const el=document.getElementById('bl-'+b.name);
