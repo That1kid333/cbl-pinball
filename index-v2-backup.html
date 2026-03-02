@@ -96,7 +96,7 @@ resize();
 window.addEventListener('resize',resize);
 
 // Camera
-let cameraY=0, targetCameraY=0, lerpSpeed=0.08;
+let cameraY=TH-H/renderScale, targetCameraY=cameraY, lerpSpeed=0.02;
 
 // Audio
 const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
@@ -240,12 +240,6 @@ storeSegs([[40,1500],[120,1500]]);
 storeSegs([[648,1500],[728,1500]]);
 storeSegs(slingLeftPts.concat([slingLeftPts[0]]));
 storeSegs(slingRightPts.concat([slingRightPts[0]]));
-storeSegs([[80,400],[80,200],[100,120],[160,60],[250,30]]);
-storeSegs([[520,30],[610,60],[668,120],[688,200],[688,400]]);
-storeSegs([[180,1200],[160,1100],[150,1000],[160,900],[180,850]]);
-storeSegs([[240,1200],[220,1100],[210,1000],[220,900],[240,850]]);
-storeSegs([[528,1200],[548,1100],[558,1000],[548,900],[528,850]]);
-storeSegs([[588,1200],[608,1100],[618,1000],[608,900],[588,850]]);
 
 // Pop bumpers
 const bumpers=[
@@ -295,53 +289,6 @@ const spinnerFd=new b2FixtureDef();spinnerFd.shape=spinnerShape;spinnerFd.restit
 spinnerFd.userData={type:'spinner'};
 spinnerBody.CreateFixture(spinnerFd);
 let spinnerAngle=0,spinnerSpeed=0;
-
-// === ADDITIONAL TABLE ELEMENTS ===
-
-// Upper orbit lane guides (left side)
-addPolyWalls([[80,400],[80,200],[100,120],[160,60],[250,30]]);
-// Upper orbit lane guides (right side)  
-addPolyWalls([[520,30],[610,60],[668,120],[688,200],[688,400]]);
-
-// Left ramp entrance walls
-addPolyWalls([[180,1200],[160,1100],[150,1000],[160,900],[180,850]]);
-addPolyWalls([[240,1200],[220,1100],[210,1000],[220,900],[240,850]]);
-
-// Right ramp entrance walls
-addPolyWalls([[528,1200],[548,1100],[558,1000],[548,900],[528,850]]);
-addPolyWalls([[588,1200],[608,1100],[618,1000],[608,900],[588,850]]);
-
-// Center scoop/saucer (circular target)
-const scoopPos={x:384,y:800};
-const scoopBd=new b2BodyDef();scoopBd.type=b2Body.b2_staticBody;
-scoopBd.position.Set(scoopPos.x/SCALE,scoopPos.y/SCALE);
-const scoopBody=world.CreateBody(scoopBd);
-const scoopShape=new b2CircleShape(25/SCALE);
-const scoopFd=new b2FixtureDef();scoopFd.shape=scoopShape;scoopFd.restitution=0.8;
-scoopFd.userData={type:'scoop'};
-scoopBody.CreateFixture(scoopFd);
-
-// Standup targets (upper playfield)
-const standupDefs=[
-  {x:200,y:350,w:6,h:20},
-  {x:570,y:350,w:6,h:20},
-  {x:150,y:600,w:6,h:20},
-  {x:620,y:600,w:6,h:20},
-];
-let standupHits=[0,0,0,0];
-standupDefs.forEach((st,i)=>{
-  const bd=new b2BodyDef();bd.type=b2Body.b2_staticBody;
-  bd.position.Set(st.x/SCALE,st.y/SCALE);
-  const body=world.CreateBody(bd);
-  const shape=new b2PolygonShape();
-  shape.SetAsBox(st.w/SCALE,st.h/SCALE);
-  const fd=new b2FixtureDef();fd.shape=shape;fd.restitution=0.6;
-  fd.userData={type:'standup',index:i};
-  body.CreateFixture(fd);
-});
-
-// Kickback (left outlane save)
-let kickbackActive=true;
 
 // Slingshot sensors
 const slingBodies=[];
@@ -479,24 +426,6 @@ contactListener.BeginContact=function(contact){
     addScore(10,ud.index===0?170:598,1430);
     playSound(400,0.05,0.1);
   }
-  if(ud.type==='scoop'){
-    addScore(2500*multiplier,scoopPos.x,scoopPos.y);
-    playSound(800,0.2,0.2);playSound(1000,0.15,0.15);
-    addCombo();
-    // Eject ball after delay
-    setTimeout(()=>{
-      if(ballBody){
-        ballBody.ApplyImpulse(new b2Vec2(Math.random()*2-1,-4),ballBody.GetWorldCenter());
-      }
-    },500);
-  }
-  if(ud.type==='standup'){
-    const si=ud.index;
-    standupHits[si]++;
-    addScore(200*multiplier,standupDefs[si].x,standupDefs[si].y);
-    playSound(500+si*100,0.1,0.15);
-    addCombo();
-  }
   if(ud.type==='drain'){
     if(ballSaveTimer>0){
       // Save the ball - teleport back to shooter
@@ -546,7 +475,7 @@ function spawnBall(){
   ballSaveTimer=5;
   skillShotAvailable=true;
   lerpSpeed=0.02;
-  targetCameraY=Math.max(0,TH*0.7);
+  targetCameraY=TH-H/renderScale;
 }
 
 function endGame(){
@@ -858,28 +787,306 @@ function drawChromeRail(pts,width){
   ctx.restore();
 }
 
+function drawWoodBorder(){
+  ctx.save();
+  // Wood grain outer border
+  const wg=ctx.createLinearGradient(0,0,TW+40,0);
+  wg.addColorStop(0,'#3E2723');wg.addColorStop(0.15,'#5D4037');wg.addColorStop(0.3,'#4E342E');
+  wg.addColorStop(0.5,'#6D4C41');wg.addColorStop(0.7,'#4E342E');wg.addColorStop(0.85,'#5D4037');wg.addColorStop(1,'#3E2723');
+  ctx.fillStyle=wg;
+  // Top
+  ctx.fillRect(0,0,TW+40,12);
+  // Bottom
+  ctx.fillRect(0,TH-8,TW+40,12);
+  // Left
+  ctx.fillRect(0,0,42,TH);
+  // Right
+  ctx.fillRect(758,0,42,TH);
+  // Inner bevel
+  ctx.strokeStyle='#2E1B0E';ctx.lineWidth=2;
+  ctx.strokeRect(40,10,720,1840);
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
+  ctx.strokeRect(41,11,718,1838);
+  ctx.restore();
+}
 
+function drawPlayfield(){
+  // Green felt texture
+  const fg=ctx.createLinearGradient(40,0,760,TH);
+  fg.addColorStop(0,'#0B3D0B');fg.addColorStop(0.3,'#0D4A0D');fg.addColorStop(0.5,'#0B3D0B');
+  fg.addColorStop(0.7,'#0A350A');fg.addColorStop(1,'#082E08');
+  ctx.fillStyle=fg;
+  ctx.fillRect(40,10,720,1840);
+  // Subtle texture pattern (diamond plate feel)
+  ctx.globalAlpha=0.03;ctx.fillStyle='#000';
+  for(let y=10;y<TH;y+=20){
+    for(let x=40;x<760;x+=20){
+      if((x+y)%40===0)ctx.fillRect(x,y,10,10);
+    }
+  }
+  ctx.globalAlpha=1;
+}
 
+function drawShooterLane(){
+  ctx.save();
+  // Dark inset channel
+  const sg=ctx.createLinearGradient(728,0,760,0);
+  sg.addColorStop(0,'#050505');sg.addColorStop(0.3,'#111');sg.addColorStop(0.7,'#0a0a0a');sg.addColorStop(1,'#050505');
+  ctx.fillStyle=sg;ctx.fillRect(728,450,32,1350);
+  // Side grooves
+  ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(728,450,3,1350);ctx.fillRect(757,450,3,1350);
+  // Arrows pointing up
+  for(let i=0;i<5;i++){
+    const ay=1650-i*120;
+    const a=0.15+i*0.08;
+    drawArrow(744,ay,10,'#FF6B35',a);
+  }
+  // Plunger graphic at bottom
+  ctx.fillStyle='#444';ctx.fillRect(737,1760,14,35);
+  const pg=ctx.createLinearGradient(737,0,751,0);
+  pg.addColorStop(0,'#888');pg.addColorStop(0.5,'#ccc');pg.addColorStop(1,'#666');
+  ctx.fillStyle=pg;ctx.fillRect(739,1762,10,6);
+  // Spring
+  ctx.strokeStyle='#999';ctx.lineWidth=1.5;
+  for(let i=0;i<5;i++){
+    const sy=1772+i*5;
+    ctx.beginPath();ctx.moveTo(739,sy);ctx.lineTo(749,sy+2.5);ctx.lineTo(739,sy+5);ctx.stroke();
+  }
+  ctx.restore();
+}
 
+function drawTableDecorations(){
+  ctx.save();
+  // === CITY BUCKET LIST logo in center ===
+  ctx.textAlign='center';
+  ctx.font='bold 38px Arial Black';
+  ctx.fillStyle='rgba(255,107,53,0.12)';
+  ctx.fillText('CITY',384,1040);
+  ctx.font='bold 50px Arial Black';
+  ctx.fillStyle='rgba(255,107,53,0.15)';
+  ctx.fillText('BUCKET',384,1090);
+  ctx.font='bold 38px Arial Black';
+  ctx.fillStyle='rgba(255,107,53,0.12)';
+  ctx.fillText('LIST',384,1140);
+  // Decorative diamond around logo
+  ctx.strokeStyle='rgba(255,107,53,0.08)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(384,980);ctx.lineTo(520,1090);ctx.lineTo(384,1180);ctx.lineTo(248,1090);ctx.closePath();ctx.stroke();
 
+  // === Lane arrows (upper playfield) ===
+  const laneXs=[200,300,384,470,570];
+  const arrowColors=['#FF6B35','#FFD700','#44ddff','#FFD700','#FF6B35'];
+  for(let li=0;li<laneXs.length;li++){
+    for(let ai=0;ai<3;ai++){
+      const ay=250-ai*30;
+      drawArrow(laneXs[li],ay,8,arrowColors[li],0.25+ai*0.12);
+    }
+  }
 
+  // === Insert lights scattered around table ===
+  // Bonus multipliers
+  const bonusLabels=['1x','2x','3x','5x'];
+  const bonusXs=[280,340,430,490];
+  for(let i=0;i<4;i++){
+    const active=(multiplier>=(i===3?5:[1,2,3][i]));
+    drawInsertLight(bonusXs[i],900,12,i===3?'#FF6B35':'#FFD700',active);
+    ctx.fillStyle=active?'#FFD700':'#555';ctx.font='bold 10px Arial';ctx.textAlign='center';
+    ctx.fillText(bonusLabels[i],bonusXs[i],904);
+  }
 
+  // SPECIAL insert
+  drawInsertLight(200,1300,14,'#FF6B35',score>50000);
+  ctx.fillStyle=score>50000?'#FF6B35':'#444';ctx.font='bold 8px Arial';ctx.textAlign='center';
+  ctx.fillText('SPECIAL',200,1303);
 
+  // EXTRA BALL insert
+  drawInsertLight(568,1300,14,'#44ddff',ballSaveTimer>0);
+  ctx.fillStyle=ballSaveTimer>0?'#44ddff':'#444';ctx.font='bold 7px Arial';
+  ctx.fillText('EXTRA BALL',568,1303);
 
+  // Decorative dots pattern (playfield inserts)
+  const dotPositions=[
+    [180,950],[220,980],[580,950],[540,980],
+    [150,1200],[610,1200],
+    [250,1250],[510,1250],
+    [384,1350],[300,1350],[468,1350]
+  ];
+  dotPositions.forEach(d=>{
+    drawInsertLight(d[0],d[1],6,'#FFD700',Math.sin(lastTime*0.002+d[0]*0.1)>0.5);
+  });
 
+  // Rollover lanes between bumpers
+  ctx.strokeStyle='rgba(255,215,0,0.15)';ctx.lineWidth=20;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(300,500);ctx.lineTo(380,650);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(470,420);ctx.lineTo(380,650);ctx.stroke();
+  ctx.strokeStyle='rgba(255,215,0,0.06)';ctx.lineWidth=24;
+  ctx.beginPath();ctx.moveTo(300,500);ctx.lineTo(470,420);ctx.stroke();
 
+  // Buckee branding circles
+  ctx.strokeStyle='rgba(255,107,53,0.06)';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(384,580,120,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(384,580,140,0,Math.PI*2);ctx.stroke();
 
+  ctx.restore();
+}
 
+function drawBumperRich(i){
+  const bmp=bumpers[i];
+  const glow=bumperGlow[i];
+  ctx.save();
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.beginPath();ctx.arc(bmp.x+3,bmp.y+4,bmp.r+6,0,Math.PI*2);ctx.fill();
+  // Lit base ring (pulses)
+  const pulse=0.3+0.15*Math.sin(lastTime*0.003+i*2);
+  ctx.globalAlpha=pulse+glow*0.7;
+  ctx.fillStyle=bmp.color;
+  ctx.beginPath();ctx.arc(bmp.x,bmp.y,bmp.r+8,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=1;
+  // Outer chrome ring
+  const cr=ctx.createRadialGradient(bmp.x-5,bmp.y-5,bmp.r*0.7,bmp.x,bmp.y,bmp.r+4);
+  cr.addColorStop(0,'#ddd');cr.addColorStop(0.5,'#999');cr.addColorStop(0.8,'#666');cr.addColorStop(1,'#444');
+  ctx.fillStyle=cr;
+  ctx.beginPath();ctx.arc(bmp.x,bmp.y,bmp.r+4,0,Math.PI*2);ctx.fill();
+  // Inner colored cap
+  const drawFns=[drawBuckee,drawListy,drawCitty];
+  drawFns[i](ctx,bmp.x,bmp.y,bmp.r,0);
+  // Glow halo on hit
+  if(glow>0){
+    ctx.globalAlpha=glow*0.7;
+    ctx.shadowColor=bmp.color;ctx.shadowBlur=30;
+    ctx.fillStyle=bmp.color;
+    ctx.beginPath();ctx.arc(bmp.x,bmp.y,bmp.r+16,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;ctx.globalAlpha=1;
+  }
+  // Label
+  ctx.fillStyle='#fff';ctx.font='bold 14px Arial';ctx.textAlign='center';
+  ctx.fillText(bmp.label,bmp.x,bmp.y+bmp.r+20);
+  ctx.restore();
+}
 
+function drawSlingshotRich(pts,idx){
+  ctx.save();
+  const flash=slingFlash[idx]||0;
+  // Corner posts (metallic circles)
+  pts.forEach(p=>{
+    const pg=ctx.createRadialGradient(p[0]-2,p[1]-2,1,p[0],p[1],8);
+    pg.addColorStop(0,'#ddd');pg.addColorStop(1,'#555');
+    ctx.fillStyle=pg;
+    ctx.beginPath();ctx.arc(p[0],p[1],7,0,Math.PI*2);ctx.fill();
+  });
+  // Rubber band fill
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  pts.forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();
+  const sf=ctx.createLinearGradient(pts[0][0],pts[1][1],pts[2][0],pts[0][1]);
+  sf.addColorStop(0,'rgba(255,80,30,0.4)');sf.addColorStop(1,'rgba(200,50,10,0.5)');
+  ctx.fillStyle=flash>0?'rgba(255,255,255,'+flash*0.6+')':sf;
+  ctx.fill();
+  // Thick dark rubber border
+  ctx.strokeStyle=flash>0?'rgba(255,200,150,0.8)':'#441100';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  pts.forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();ctx.stroke();
+  ctx.restore();
+}
 
+function drawFlipperRich(f){
+  const pos=f.body.GetPosition();
+  const angle=f.body.GetAngle();
+  ctx.save();
+  ctx.translate(pos.x*SCALE,pos.y*SCALE);
+  ctx.rotate(angle);
+  const len=150,h1=18,h2=8;
+  // Shadow
+  ctx.save();ctx.translate(3,4);ctx.globalAlpha=0.35;ctx.fillStyle='#000';
+  if(f.isLeft){ctx.beginPath();ctx.moveTo(0,-h1);ctx.lineTo(len,-h2);ctx.lineTo(len,h2);ctx.lineTo(0,h1);ctx.closePath();}
+  else{ctx.beginPath();ctx.moveTo(0,-h1);ctx.lineTo(-len,-h2);ctx.lineTo(-len,h2);ctx.lineTo(0,h1);ctx.closePath();}
+  ctx.fill();ctx.restore();
+  // Main flipper body with chrome gradient
+  const fg=ctx.createLinearGradient(0,-h1,0,h1);
+  fg.addColorStop(0,'#ddd');fg.addColorStop(0.3,'#FF8844');fg.addColorStop(0.5,'#FF6B35');fg.addColorStop(0.7,'#CC5522');fg.addColorStop(1,'#993311');
+  ctx.fillStyle=fg;
+  if(f.isLeft){ctx.beginPath();ctx.moveTo(0,-h1);ctx.lineTo(len,-h2);ctx.lineTo(len,h2);ctx.lineTo(0,h1);ctx.closePath();}
+  else{ctx.beginPath();ctx.moveTo(0,-h1);ctx.lineTo(-len,-h2);ctx.lineTo(-len,h2);ctx.lineTo(0,h1);ctx.closePath();}
+  ctx.fill();
+  // Top highlight
+  ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1.5;
+  if(f.isLeft){ctx.beginPath();ctx.moveTo(2,-h1+2);ctx.lineTo(len-2,-h2+2);ctx.stroke();}
+  else{ctx.beginPath();ctx.moveTo(-2,-h1+2);ctx.lineTo(-len+2,-h2+2);ctx.stroke();}
+  // Pivot (chrome ball)
+  const pvg=ctx.createRadialGradient(-2,-2,1,0,0,9);
+  pvg.addColorStop(0,'#fff');pvg.addColorStop(0.5,'#ccc');pvg.addColorStop(1,'#666');
+  ctx.fillStyle=pvg;
+  ctx.beginPath();ctx.arc(0,0,9,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
 
+function drawDropTargetRich(dt,i){
+  ctx.save();
+  if(dropTargets[i]){
+    // Standing target - face
+    const tg=ctx.createLinearGradient(dt.x-dt.w,dt.y-dt.h,dt.x+dt.w,dt.y+dt.h);
+    tg.addColorStop(0,'#FF8844');tg.addColorStop(0.5,'#FFD700');tg.addColorStop(1,'#FF6B35');
+    ctx.fillStyle=tg;
+    ctx.fillRect(dt.x-dt.w-2,dt.y-dt.h-2,dt.w*2+4,dt.h*2+4);
+    // Chrome frame
+    ctx.strokeStyle='#aaa';ctx.lineWidth=2;
+    ctx.strokeRect(dt.x-dt.w-2,dt.y-dt.h-2,dt.w*2+4,dt.h*2+4);
+    // Shine
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.fillRect(dt.x-dt.w,dt.y-dt.h,dt.w*2,dt.h*0.7);
+    // Shadow at base
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.fillRect(dt.x-dt.w-4,dt.y+dt.h+2,dt.w*2+8,4);
+  }else{
+    // Knocked down - flat/disabled
+    ctx.fillStyle='#2a2a2a';
+    ctx.fillRect(dt.x-dt.w-2,dt.y-4,dt.w*2+4,8);
+    ctx.strokeStyle='#444';ctx.lineWidth=1;
+    ctx.strokeRect(dt.x-dt.w-2,dt.y-4,dt.w*2+4,8);
+  }
+  ctx.restore();
+}
 
-
+function drawBallRich(){
+  if(!ballBody)return;
+  const bp=ballBody.GetPosition();
+  const bx=bp.x*SCALE,by=bp.y*SCALE;
+  ctx.save();
+  // Shadow beneath
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  ctx.beginPath();ctx.ellipse(bx+2,by+4,13,8,0,0,Math.PI*2);ctx.fill();
+  // Outer glow
+  ctx.fillStyle='rgba(200,210,255,0.1)';
+  ctx.beginPath();ctx.arc(bx,by,20,0,Math.PI*2);ctx.fill();
+  // Chrome ball with metallic gradient
+  const bg=ctx.createRadialGradient(bx-4,by-5,1,bx,by,12);
+  bg.addColorStop(0,'#ffffff');bg.addColorStop(0.2,'#eeeef8');bg.addColorStop(0.5,'#bbbbcc');bg.addColorStop(0.8,'#888899');bg.addColorStop(1,'#555566');
+  ctx.fillStyle=bg;
+  ctx.beginPath();ctx.arc(bx,by,12,0,Math.PI*2);ctx.fill();
+  // Edge ring
+  ctx.strokeStyle='rgba(80,80,100,0.5)';ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.arc(bx,by,12,0,Math.PI*2);ctx.stroke();
+  // Specular highlight dot
+  ctx.fillStyle='rgba(255,255,255,0.9)';
+  ctx.beginPath();ctx.arc(bx-4,by-5,3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.beginPath();ctx.arc(bx-2,by-3,1.5,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
 
 // Slingshot flash update (call in update loop area—we do it in render for simplicity)
+function updateSlingFlash(dt){
+  for(let i=0;i<2;i++)if(slingFlash[i]>0)slingFlash[i]=Math.max(0,slingFlash[i]-dt*4);
+}
 
-
-
+// Patch slingshot contact to trigger flash
+const _origBeginContact=contactListener.BeginContact;
+contactListener.BeginContact=function(contact){
+  const a=contact.GetFixtureA().GetUserData();
+  const b=contact.GetFixtureB().GetUserData();
+  const ud=a||b;
+  if(ud&&ud.type==='slingshot')slingFlash[ud.index]=1.0;
+  _origBeginContact.call(this,contact);
+};
 
 function render(){
   ctx.clearRect(0,0,W,H);
@@ -897,8 +1104,8 @@ function render(){
   
   // AI-generated table artwork overlay
   if(bgLoaded){
-    ctx.globalAlpha=0.95;
-    ctx.drawImage(tableBgImg,38,10,TW-78,TH-20);
+    ctx.globalAlpha=0.85;
+    ctx.drawImage(tableBgImg,20,0,TW-20,TH);
     ctx.globalAlpha=1;
   }
   
@@ -927,7 +1134,11 @@ function render(){
   ctx.strokeRect(37,9,TW-80,TH-20);
   ctx.shadowBlur=0;
   
-  // Playfield - AI artwork is the main surface, skip felt overlay
+  // Playfield felt surface
+  const feltGrad=ctx.createRadialGradient(384,960,100,384,960,900);
+  feltGrad.addColorStop(0,'#0c1e3a');feltGrad.addColorStop(1,'#060e1e');
+  ctx.fillStyle=feltGrad;
+  ctx.fillRect(38,10,TW-82,TH-22);
   
   // === LAYER 3: Lane markings and decorations ===
   // Lane arrows (pointing up) in shooter lane
@@ -1105,54 +1316,6 @@ function render(){
     ctx.fillStyle=blcHits[c]?'#000':'#555';ctx.fillText(c,x,y+5);
   });
   
-  // === LAYER 8b: Ramp entrances ===
-  // Left ramp glow
-  ctx.save();
-  ctx.strokeStyle='rgba(255,107,53,0.3)';ctx.lineWidth=6;ctx.lineCap='round';
-  ctx.beginPath();ctx.moveTo(180,1200);ctx.quadraticCurveTo(150,1050,180,850);ctx.stroke();
-  ctx.strokeStyle='rgba(255,107,53,0.15)';ctx.lineWidth=30;
-  ctx.beginPath();ctx.moveTo(210,1200);ctx.quadraticCurveTo(185,1050,210,850);ctx.stroke();
-  // Right ramp glow
-  ctx.strokeStyle='rgba(68,221,255,0.3)';ctx.lineWidth=6;
-  ctx.beginPath();ctx.moveTo(588,1200);ctx.quadraticCurveTo(618,1050,588,850);ctx.stroke();
-  ctx.strokeStyle='rgba(68,221,255,0.15)';ctx.lineWidth=30;
-  ctx.beginPath();ctx.moveTo(558,1200);ctx.quadraticCurveTo(583,1050,558,850);ctx.stroke();
-  ctx.restore();
-
-  // Center scoop
-  ctx.save();
-  ctx.beginPath();ctx.arc(scoopPos.x,scoopPos.y,28,0,Math.PI*2);
-  const scoopGrad=ctx.createRadialGradient(scoopPos.x,scoopPos.y,5,scoopPos.x,scoopPos.y,28);
-  scoopGrad.addColorStop(0,'#111');scoopGrad.addColorStop(0.7,'#222');scoopGrad.addColorStop(1,'#444');
-  ctx.fillStyle=scoopGrad;ctx.fill();
-  ctx.strokeStyle='#888';ctx.lineWidth=3;ctx.stroke();
-  // Arrow pointing into scoop
-  ctx.fillStyle='#FFD700';ctx.globalAlpha=0.5+0.3*Math.sin(lastTime*0.004);
-  ctx.beginPath();ctx.moveTo(scoopPos.x,scoopPos.y-15);ctx.lineTo(scoopPos.x-8,scoopPos.y+5);ctx.lineTo(scoopPos.x+8,scoopPos.y+5);ctx.closePath();ctx.fill();
-  ctx.globalAlpha=1;
-  ctx.restore();
-
-  // Standup targets
-  standupDefs.forEach((st,i)=>{
-    ctx.save();
-    const hit=standupHits[i]>0;
-    ctx.fillStyle=hit?'#FFD700':'#cc3333';
-    ctx.shadowColor=hit?'#FFD700':'#ff0000';ctx.shadowBlur=hit?12:4;
-    ctx.fillRect(st.x-st.w,st.y-st.h,st.w*2,st.h*2);
-    ctx.strokeStyle='#ddd';ctx.lineWidth=1;
-    ctx.strokeRect(st.x-st.w,st.y-st.h,st.w*2,st.h*2);
-    ctx.shadowBlur=0;
-    ctx.restore();
-  });
-
-  // Orbit lane glow
-  ctx.save();ctx.globalAlpha=0.2;
-  ctx.strokeStyle='#FFD700';ctx.lineWidth=8;ctx.lineCap='round';
-  ctx.beginPath();ctx.moveTo(80,400);ctx.quadraticCurveTo(80,200,250,30);ctx.stroke();
-  ctx.strokeStyle='#44ddff';
-  ctx.beginPath();ctx.moveTo(688,400);ctx.quadraticCurveTo(688,200,520,30);ctx.stroke();
-  ctx.globalAlpha=1;ctx.restore();
-
   // === LAYER 9: Flippers (3D metallic) ===
   [leftFlipper,rightFlipper].forEach(f=>{
     const pos=f.body.GetPosition();
