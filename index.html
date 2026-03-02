@@ -159,7 +159,7 @@ function initTable(){
 function createBall(x,y,active){return{x,y,vx:0,vy:0,r:8,active,trail:[],inLane:true}}
 function resetBall(){
   if(ballsLeft<=0&&!multiballActive)return gameOver();
-  const b=createBall(370,700,false);
+  const b=createBall(371,700,false);
   b.inLane=true;
   balls=[b];launching=true;plungerPower=0;skillShotActive=true;
   ballSaveTimer=0;multiballActive=false;
@@ -174,13 +174,14 @@ function launch(){
   if(!balls.length||balls[0].active)return;
   balls[0].active=true;launching=false;
   // Launch straight UP the shooter lane — the curved rail at top will redirect onto playfield
-  balls[0].vy=-plungerPower*0.4-5;balls[0].vx=0;
+  const launchPower=Math.max(plungerPower,5); // minimum power ensures ball always reaches top
+  balls[0].vy=-launchPower*0.45-6;balls[0].vx=0;
   balls[0].inLane=true;
   ballSaveTimer=300; // 5 seconds at 60fps
   // Skill shot check
   if(skillShotActive&&plungerPower>=12&&plungerPower<=16){
     addScore(2500);skillShotSound();
-    spawnScorePopup(370,400,'SKILL SHOT!\n2500','#FFD700');
+    spawnScorePopup(371,400,'SKILL SHOT!\n2500','#FFD700');
     showStatus('\u{1F3AF} SKILL SHOT! +2500');
   }
   skillShotActive=false;launchSound();
@@ -280,33 +281,37 @@ function updateBall(ball){
   ball.x+=ball.vx;ball.y+=ball.vy;
 
   // Walls & Shooter Lane
-  const wallL=30,wallR=350,plungerL=355,plungerR=385;
-  const RAIL_TOP=30; // where the curved rail bends the ball left
+  const wallL=30,wallR=345,plungerL=352,plungerR=390;
+  const RAIL_TOP=35; // where the curved rail bends the ball left
+  const LANE_CX=(plungerL+plungerR)/2; // lane center x
   
   // Left wall
   if(ball.x-ball.r<wallL){ball.x=wallL+ball.r;ball.vx=Math.abs(ball.vx)*BOUNCE}
   
   // Shooter lane physics (right side channel)
   if(ball.inLane){
-    // Keep ball in the shooter lane channel (x: plungerL to plungerR)
-    if(ball.x-ball.r<plungerL){ball.x=plungerL+ball.r;ball.vx=Math.abs(ball.vx)*BOUNCE}
-    if(ball.x+ball.r>plungerR){ball.x=plungerR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
-    // Curved rail at top — when ball reaches top of lane, redirect it left onto playfield
-    if(ball.y-ball.r<RAIL_TOP){
+    // Keep ball centered in lane — strong containment walls
+    if(ball.x-ball.r<plungerL){ball.x=plungerL+ball.r;ball.vx=Math.abs(ball.vx)*BOUNCE*0.3}
+    if(ball.x+ball.r>plungerR){ball.x=plungerR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE*0.3}
+    // Gently guide ball toward center of lane
+    ball.vx+=(LANE_CX-ball.x)*0.02;
+    // Curved rail at top — when ball reaches top of lane, redirect onto playfield
+    if(ball.y<RAIL_TOP+ball.r){
       ball.inLane=false; // exit shooter lane, enter playfield
-      ball.y=RAIL_TOP+ball.r+2;
+      ball.y=RAIL_TOP+ball.r+5;
+      ball.x=wallR-ball.r-5; // place ball just inside playfield right wall
       // Curve the ball left and slightly down — simulating the rail arc
       const speed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
-      ball.vx=-Math.max(speed*0.7,4); // strong leftward
-      ball.vy=Math.abs(ball.vy)*0.3+0.5; // gentle downward
+      ball.vx=-Math.max(speed*0.65,5); // strong leftward push
+      ball.vy=Math.max(Math.abs(ball.vy)*0.25,1); // gentle downward
     }
+    // If ball falls back to drain in the lane, let it drain normally
+    if(ball.y>740){ball.inLane=false;return false}
   } else {
-    // Normal playfield walls — ball cannot re-enter shooter lane
-    if(ball.x+ball.r>wallR&&ball.y>100){ball.x=wallR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
+    // Normal playfield walls — right wall blocks re-entry to lane
+    if(ball.x+ball.r>wallR){ball.x=wallR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
     // Top wall for playfield
     if(ball.y-ball.r<15){ball.y=15+ball.r;ball.vy=Math.abs(ball.vy)*BOUNCE}
-    // Right wall above lane entry (top area of playfield)
-    if(ball.x+ball.r>plungerR&&ball.y<=100){ball.x=plungerR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
   }
 
   // Bumpers (with cooldown to prevent infinite bounce trap)
@@ -344,8 +349,8 @@ function updateBall(ball){
     const wx=ball.x-60,wy=ball.y-580;
     if(wx<wy*0.5&&ball.vx<1){ball.vx+=3;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
-  if(ball.x>270&&ball.x<340&&ball.y>580&&ball.y<660){
-    const wx=340-ball.x,wy=ball.y-580;
+  if(ball.x>270&&ball.x<335&&ball.y>580&&ball.y<660){
+    const wx=335-ball.x,wy=ball.y-580;
     if(wx<wy*0.5&&ball.vx>-1){ball.vx-=3;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
 
@@ -466,27 +471,33 @@ function draw(){
   // Table bg with gradient
   const tbg=ctx.createLinearGradient(15,10,15,740);
   tbg.addColorStop(0,'#1A1A2E');tbg.addColorStop(0.5,'#16213E');tbg.addColorStop(1,'#1A1A2E');
-  ctx.fillStyle=tbg;ctx.fillRect(15,10,335,730);
-  // Shooter lane background (slightly darker)
-  ctx.fillStyle='#12182e';ctx.fillRect(355,25,30,715);
+  ctx.fillStyle=tbg;ctx.fillRect(15,10,330,730);
+  // Shooter lane background (slightly darker, wider lane)
+  ctx.fillStyle='#0e1525';ctx.fillRect(352,20,38,720);
 
   // Neon border — playfield
   ctx.shadowColor='#FF6B35';ctx.shadowBlur=8;
   ctx.strokeStyle='#FF6B35';ctx.lineWidth=3;
-  ctx.strokeRect(15,10,335,730);
-  // Shooter lane border
-  ctx.strokeRect(355,25,30,715);
+  ctx.strokeRect(15,10,330,730);
+  // Shooter lane border (wider)
+  ctx.strokeRect(352,20,38,720);
   // Curved rail connecting shooter lane top to playfield
   ctx.beginPath();
-  ctx.moveTo(355,25);
-  ctx.quadraticCurveTo(355,10,340,10);
+  ctx.moveTo(352,20);
+  ctx.quadraticCurveTo(350,10,335,10);
   ctx.stroke();
-  // Inner rail (separates lane from playfield below the curve)
-  ctx.strokeStyle='#FF6B3588';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(350,100);ctx.lineTo(350,740);ctx.stroke();
-  // Rail curve indicator (shows where ball enters playfield)
-  ctx.strokeStyle='#44ddff44';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(355,30);ctx.quadraticCurveTo(352,18,335,15);ctx.stroke();
+  // Divider wall between playfield and lane
+  ctx.strokeStyle='#FF6B35';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(345,60);ctx.lineTo(345,740);ctx.stroke();
+  // Rail curve indicator — glowing guide showing where ball enters playfield
+  ctx.strokeStyle='#44ddff66';ctx.lineWidth=3;
+  ctx.beginPath();
+  ctx.moveTo(352,35);
+  ctx.quadraticCurveTo(348,20,330,15);
+  ctx.stroke();
+  // Lane label
+  ctx.fillStyle='#FF6B3566';ctx.font='bold 8px sans-serif';ctx.textAlign='center';
+  ctx.fillText('SHOOT',371,80);
   ctx.shadowBlur=0;
 
   // Lanes
@@ -499,16 +510,16 @@ function draw(){
   // Slingshots
   ctx.strokeStyle='#FF6B35';ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(60,580);ctx.lineTo(100,660);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(340,580);ctx.lineTo(300,660);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(335,580);ctx.lineTo(295,660);ctx.stroke();
 
   // Gutters
   ctx.fillStyle='#111';
   ctx.beginPath();ctx.moveTo(15,740);ctx.lineTo(120,710);ctx.lineTo(15,710);ctx.fill();
-  ctx.beginPath();ctx.moveTo(355,740);ctx.lineTo(260,710);ctx.lineTo(355,710);ctx.fill();
+  ctx.beginPath();ctx.moveTo(345,740);ctx.lineTo(260,710);ctx.lineTo(345,710);ctx.fill();
 
   // Kickback indicators
   if(kickbackLeft){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(16,700,12,30);ctx.globalAlpha=1}
-  if(kickbackRight){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(342,700,12,30);ctx.globalAlpha=1}
+  if(kickbackRight){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(333,700,12,30);ctx.globalAlpha=1}
 
   // Drop targets
   for(let i=0;i<3;i++){
@@ -596,21 +607,23 @@ function draw(){
       ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ball.x-2,ball.y-2,ball.r*0.4,0,Math.PI*2);ctx.fill();
     }else{
       const py=700-plungerPower*3;
-      ctx.fillStyle='#ddd';ctx.beginPath();ctx.arc(370,py,ball.r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#ddd';ctx.beginPath();ctx.arc(371,py,ball.r,0,Math.PI*2);ctx.fill();
       // Plunger rod
-      ctx.fillStyle='#FF6B35';ctx.fillRect(363,py+ball.r,14,740-py-ball.r);
+      ctx.fillStyle='#FF6B35';ctx.fillRect(364,py+ball.r,14,740-py-ball.r);
       // Plunger base
-      ctx.fillStyle='#cc5522';ctx.fillRect(358,730,24,10);
+      ctx.fillStyle='#cc5522';ctx.fillRect(358,732,26,8);
       // Skill shot zone indicator (green zone on lane wall)
       if(skillShotActive){
         const greenY=700-16*3,greenH=700-12*3-greenY;
-        ctx.fillStyle='#44ff4444';ctx.fillRect(352,greenY,3,greenH);
+        ctx.fillStyle='#44ff4444';ctx.fillRect(353,greenY,3,greenH);
         ctx.fillStyle='#44ff44';ctx.font='bold 7px sans-serif';ctx.textAlign='center';
-        ctx.fillText('SKILL',370,greenY-4);
+        ctx.fillText('SKILL',371,greenY-4);
       }
-      // Launch arrow
+      // Launch arrows — animated
       ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
-      ctx.fillText('\u25B2',370,py-14);
+      const arrowY=py-14-Math.sin(Date.now()*0.005)*4;
+      ctx.fillText('\u25B2',371,arrowY);
+      ctx.globalAlpha=0.4;ctx.fillText('\u25B2',371,arrowY-12);ctx.globalAlpha=1;
     }
   }
 
