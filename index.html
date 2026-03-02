@@ -156,25 +156,26 @@ function initTable(){
   };
 }
 
-function createBall(x,y,active){return{x,y,vx:0,vy:0,r:8,active,trail:[]}}
+function createBall(x,y,active){return{x,y,vx:0,vy:0,r:8,active,trail:[],inLane:true}}
 function resetBall(){
   if(ballsLeft<=0&&!multiballActive)return gameOver();
-  const b=createBall(375,700,false);
+  const b=createBall(370,700,false);
+  b.inLane=true;
   balls=[b];launching=true;plungerPower=0;skillShotActive=true;
   ballSaveTimer=0;multiballActive=false;
 }
 function addMultiball(){
   multiballActive=true;multiballSound();
   showStatus('\u{1F525} MULTIBALL! \u{1F525}');
-  balls.push(createBall(200,300,true));
-  balls[balls.length-1].vx=2;balls[balls.length-1].vy=-3;
-  balls.push(createBall(200,300,true));
-  balls[balls.length-1].vx=-2;balls[balls.length-1].vy=-4;
+  let mb1=createBall(200,300,true);mb1.inLane=false;mb1.vx=2;mb1.vy=-3;balls.push(mb1);
+  let mb2=createBall(200,300,true);mb2.inLane=false;mb2.vx=-2;mb2.vy=-4;balls.push(mb2);
 }
 function launch(){
   if(!balls.length||balls[0].active)return;
   balls[0].active=true;launching=false;
-  balls[0].vy=-plungerPower*0.35-4;balls[0].vx=-1;
+  // Launch straight UP the shooter lane — the curved rail at top will redirect onto playfield
+  balls[0].vy=-plungerPower*0.4-5;balls[0].vx=0;
+  balls[0].inLane=true;
   ballSaveTimer=300; // 5 seconds at 60fps
   // Skill shot check
   if(skillShotActive&&plungerPower>=12&&plungerPower<=16){
@@ -278,17 +279,34 @@ function updateBall(ball){
   ball.vy+=GRAVITY;ball.vx*=FRICTION;ball.vy*=FRICTION;
   ball.x+=ball.vx;ball.y+=ball.vy;
 
-  // Walls
+  // Walls & Shooter Lane
   const wallL=30,wallR=350,plungerL=355,plungerR=385;
+  const RAIL_TOP=30; // where the curved rail bends the ball left
+  
+  // Left wall
   if(ball.x-ball.r<wallL){ball.x=wallL+ball.r;ball.vx=Math.abs(ball.vx)*BOUNCE}
-  if(ball.x<plungerL&&ball.x+ball.r>wallR){ball.x=wallR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
-  if(ball.x>=plungerL-ball.r){
-    if(ball.x-ball.r<plungerL&&ball.y>100){ball.x=plungerL+ball.r;ball.vx=Math.abs(ball.vx)*BOUNCE}
+  
+  // Shooter lane physics (right side channel)
+  if(ball.inLane){
+    // Keep ball in the shooter lane channel (x: plungerL to plungerR)
+    if(ball.x-ball.r<plungerL){ball.x=plungerL+ball.r;ball.vx=Math.abs(ball.vx)*BOUNCE}
     if(ball.x+ball.r>plungerR){ball.x=plungerR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
-  }
-  if(ball.y-ball.r<15){ball.y=15+ball.r;ball.vy=Math.abs(ball.vy)*BOUNCE}
-  if(ball.x>wallR&&ball.y<100&&ball.y-ball.r<50){
-    ball.vy=Math.abs(ball.vy)*BOUNCE;ball.vx=-Math.abs(ball.vx)*0.5-2;
+    // Curved rail at top — when ball reaches top of lane, redirect it left onto playfield
+    if(ball.y-ball.r<RAIL_TOP){
+      ball.inLane=false; // exit shooter lane, enter playfield
+      ball.y=RAIL_TOP+ball.r+2;
+      // Curve the ball left and slightly down — simulating the rail arc
+      const speed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
+      ball.vx=-Math.max(speed*0.7,4); // strong leftward
+      ball.vy=Math.abs(ball.vy)*0.3+0.5; // gentle downward
+    }
+  } else {
+    // Normal playfield walls — ball cannot re-enter shooter lane
+    if(ball.x+ball.r>wallR&&ball.y>100){ball.x=wallR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
+    // Top wall for playfield
+    if(ball.y-ball.r<15){ball.y=15+ball.r;ball.vy=Math.abs(ball.vy)*BOUNCE}
+    // Right wall above lane entry (top area of playfield)
+    if(ball.x+ball.r>plungerR&&ball.y<=100){ball.x=plungerR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
   }
 
   // Bumpers (with cooldown to prevent infinite bounce trap)
@@ -448,14 +466,27 @@ function draw(){
   // Table bg with gradient
   const tbg=ctx.createLinearGradient(15,10,15,740);
   tbg.addColorStop(0,'#1A1A2E');tbg.addColorStop(0.5,'#16213E');tbg.addColorStop(1,'#1A1A2E');
-  ctx.fillStyle=tbg;ctx.fillRect(15,10,340,730);
-  ctx.fillRect(355,50,30,690);
+  ctx.fillStyle=tbg;ctx.fillRect(15,10,335,730);
+  // Shooter lane background (slightly darker)
+  ctx.fillStyle='#12182e';ctx.fillRect(355,25,30,715);
 
-  // Neon border
+  // Neon border — playfield
   ctx.shadowColor='#FF6B35';ctx.shadowBlur=8;
   ctx.strokeStyle='#FF6B35';ctx.lineWidth=3;
-  ctx.strokeRect(15,10,340,730);ctx.strokeRect(355,50,30,690);
-  ctx.beginPath();ctx.moveTo(355,50);ctx.quadraticCurveTo(355,15,340,15);ctx.stroke();
+  ctx.strokeRect(15,10,335,730);
+  // Shooter lane border
+  ctx.strokeRect(355,25,30,715);
+  // Curved rail connecting shooter lane top to playfield
+  ctx.beginPath();
+  ctx.moveTo(355,25);
+  ctx.quadraticCurveTo(355,10,340,10);
+  ctx.stroke();
+  // Inner rail (separates lane from playfield below the curve)
+  ctx.strokeStyle='#FF6B3588';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(350,100);ctx.lineTo(350,740);ctx.stroke();
+  // Rail curve indicator (shows where ball enters playfield)
+  ctx.strokeStyle='#44ddff44';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(355,30);ctx.quadraticCurveTo(352,18,335,15);ctx.stroke();
   ctx.shadowBlur=0;
 
   // Lanes
@@ -566,15 +597,20 @@ function draw(){
     }else{
       const py=700-plungerPower*3;
       ctx.fillStyle='#ddd';ctx.beginPath();ctx.arc(370,py,ball.r,0,Math.PI*2);ctx.fill();
-      // Plunger with skill shot zone
+      // Plunger rod
       ctx.fillStyle='#FF6B35';ctx.fillRect(363,py+ball.r,14,740-py-ball.r);
-      // Skill shot zone indicator
+      // Plunger base
+      ctx.fillStyle='#cc5522';ctx.fillRect(358,730,24,10);
+      // Skill shot zone indicator (green zone on lane wall)
       if(skillShotActive){
         const greenY=700-16*3,greenH=700-12*3-greenY;
-        ctx.fillStyle='#44ff4444';ctx.fillRect(357,greenY,6,greenH);
+        ctx.fillStyle='#44ff4444';ctx.fillRect(352,greenY,3,greenH);
+        ctx.fillStyle='#44ff44';ctx.font='bold 7px sans-serif';ctx.textAlign='center';
+        ctx.fillText('SKILL',370,greenY-4);
       }
-      ctx.fillStyle='#fff';ctx.font='bold 8px sans-serif';ctx.textAlign='center';
-      ctx.fillText('\u25B2',370,py-12);
+      // Launch arrow
+      ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+      ctx.fillText('\u25B2',370,py-14);
     }
   }
 
