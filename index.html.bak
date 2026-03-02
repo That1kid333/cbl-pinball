@@ -6,26 +6,22 @@
 <title>CBL Pinball - City Bucket List</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden}
-body{background:#0a0a1a;font-family:'Segoe UI',sans-serif;touch-action:none;display:flex;flex-direction:column;align-items:center;height:100dvh;color:#fff;-webkit-user-select:none;user-select:none}
-#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:6px 12px;z-index:10;background:linear-gradient(180deg,rgba(26,26,46,.95),transparent);pointer-events:none}
-#hud .logo{font-size:16px;font-weight:900;color:#FF6B35;text-shadow:0 0 10px #FF6B35}
-#hud .score{font-size:20px;font-weight:700;color:#fff;text-shadow:0 0 8px #FF6B35}
+body{background:#0a0a1a;overflow:hidden;font-family:'Segoe UI',sans-serif;touch-action:none;display:flex;flex-direction:column;align-items:center;height:100vh;color:#fff}
+#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:8px 16px;z-index:10;background:linear-gradient(180deg,rgba(26,26,46,.95),transparent);pointer-events:none}
+#hud .logo{font-size:18px;font-weight:900;color:#FF6B35;text-shadow:0 0 10px #FF6B35}
+#hud .score{font-size:22px;font-weight:700;color:#fff;text-shadow:0 0 8px #FF6B35}
 #hud .balls{font-size:14px;color:#aaa}
-#hud .combo{font-size:11px;color:#44ddff;opacity:0;transition:opacity .3s}
+#hud .combo{font-size:12px;color:#44ddff;opacity:0;transition:opacity .3s}
 #hud .combo.active{opacity:1}
-#hud .multiplier{font-size:13px;font-weight:700;color:#FFD700;text-shadow:0 0 6px #FFD700}
-#bucketList{position:absolute;top:42px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:10;pointer-events:none}
-.bl-item{width:24px;height:24px;border-radius:50%;border:2px solid #555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;opacity:.4;transition:all .3s}
+#hud .multiplier{font-size:14px;font-weight:700;color:#FFD700;text-shadow:0 0 6px #FFD700}
+#bucketList{position:absolute;top:50px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10;pointer-events:none}
+.bl-item{width:28px;height:28px;border-radius:50%;border:2px solid #555;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;opacity:.4;transition:all .3s}
 .bl-item.hit{opacity:1;border-color:#FF6B35;box-shadow:0 0 10px #FF6B35}
-#statusBar{position:absolute;top:68px;left:50%;transform:translateX(-50%);font-size:11px;color:#44ddff;z-index:10;pointer-events:none;text-align:center;opacity:0;transition:opacity .5s}
+#statusBar{position:absolute;top:82px;left:50%;transform:translateX(-50%);font-size:11px;color:#44ddff;z-index:10;pointer-events:none;text-align:center;opacity:0;transition:opacity .5s}
 #statusBar.show{opacity:1}
-#controls{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-end;padding:0;z-index:10;height:auto;pointer-events:none}
-.ctrl-btn{pointer-events:auto;border:2px solid #FF6B35;background:rgba(255,107,53,.15);color:#FF6B35;font-weight:700;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
+#controls{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;padding:10px 20px 20px;z-index:10}
+.ctrl-btn{width:80px;height:60px;border:2px solid #FF6B35;background:rgba(255,107,53,.15);color:#FF6B35;font-weight:700;font-size:13px;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
 .ctrl-btn:active{background:rgba(255,107,53,.4)}
-.ctrl-btn.flip-btn{width:30vw;max-width:120px;height:22vw;max-height:80px;font-size:16px;margin:0 6px 12px}
-.ctrl-btn.launch-btn{width:22vw;max-width:90px;height:22vw;max-height:80px;font-size:13px;margin:0 auto 12px;border-radius:50%;position:relative}
-#powerMeter{position:absolute;bottom:0;left:0;right:0;height:0%;background:linear-gradient(to top,#FF6B35,#FFD700);border-radius:0 0 50% 50%;opacity:0.5;transition:none;pointer-events:none}
 #overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,10,26,.92);z-index:20}
 #overlay h1{font-size:36px;color:#FF6B35;margin-bottom:8px;text-shadow:0 0 20px #FF6B35}
 #overlay h2{font-size:20px;color:#fff;margin-bottom:4px}
@@ -58,9 +54,9 @@ canvas{display:block}
 <div id="statusBar"></div>
 <canvas id="game"></canvas>
 <div id="controls">
-  <button class="ctrl-btn flip-btn" id="btnLeft">&#9664; FLIP</button>
-  <button class="ctrl-btn launch-btn" id="btnPlunger"><div id="powerMeter"></div>&#9660; LAUNCH</button>
-  <button class="ctrl-btn flip-btn" id="btnRight">FLIP &#9654;</button>
+  <button class="ctrl-btn" id="btnLeft">&#9664; FLIP</button>
+  <button class="ctrl-btn" id="btnPlunger">&#9660; LAUNCH</button>
+  <button class="ctrl-btn" id="btnRight">FLIP &#9654;</button>
 </div>
 <div id="overlay">
   <h1>CBL PINBALL</h1>
@@ -106,23 +102,15 @@ function comboSound(n){playSound(400+n*100,.15,'triangle',.1)}
 
 // Layout
 let W,H,TW,TH,TX,TY,SCALE;
-const CTRL_HEIGHT=100; // reserve space for controls
 function resize(){
   W=window.innerWidth;H=window.innerHeight;C.width=W;C.height=H;
-  const ar=.52;
-  const availH=H-CTRL_HEIGHT-30; // space for HUD top + controls bottom
-  TH=availH;TW=Math.min(W-10,TH*ar);
-  if(TW>W-10){TW=W-10;TH=TW/ar}
-  TX=(W-TW)/2;TY=28;SCALE=TW/400;initTable();
+  const ar=.52;TH=H-90;TW=Math.min(W-20,TH*ar);
+  if(TW>W-20){TW=W-20;TH=TW/ar}
+  TX=(W-TW)/2;TY=40;SCALE=TW/400;initTable();
 }
 
-// Physics — tuned for realistic pinball feel
-// Stronger gravity = ball feels heavy, falls naturally
-// More friction = ball decelerates on table surface
-// Lower bounce = walls don't ping-pong the ball
-// Lower bumper bounce = bumpers give a kick, not a cannon shot
-const GRAVITY=0.08,FRICTION=0.995,BOUNCE=0.35,BUMPER_BOUNCE=1.0;
-const FLIPPER_POWER=10,FLIPPER_HOLD_POWER=1.5; // active flip vs resting on flipper
+// Physics
+const GRAVITY=0.15,FRICTION=0.998,BOUNCE=0.6,BUMPER_BOUNCE=1.8;
 
 // Character sprites
 const charImgs={};let charImgsLoaded=0;
@@ -162,11 +150,9 @@ function initTable(){
     {x:150,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
     {x:250,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
   ];
-  // Standard pinball flipper layout: V-shaped, positioned for proper drain geometry
-  // Flippers are ~30% from center, angled to create natural V funnel
   flippers={
-    left:{x:120,y:685,len:60,angle:0.35,restAngle:0.35,activeAngle:-0.65},
-    right:{x:260,y:685,len:60,angle:Math.PI-0.35,restAngle:Math.PI-0.35,activeAngle:Math.PI+0.65}
+    left:{x:140,y:680,len:55,angle:0.4,restAngle:0.4,activeAngle:-0.6},
+    right:{x:260,y:680,len:55,angle:Math.PI-0.4,restAngle:Math.PI-0.4,activeAngle:Math.PI+0.6}
   };
 }
 
@@ -181,28 +167,24 @@ function resetBall(){
 function addMultiball(){
   multiballActive=true;multiballSound();
   showStatus('\u{1F525} MULTIBALL! \u{1F525}');
-  let mb1=createBall(200,300,true);mb1.inLane=false;mb1.vx=1.5;mb1.vy=-2;balls.push(mb1);
-  let mb2=createBall(200,300,true);mb2.inLane=false;mb2.vx=-1.5;mb2.vy=-2.5;balls.push(mb2);
+  let mb1=createBall(200,300,true);mb1.inLane=false;mb1.vx=2;mb1.vy=-3;balls.push(mb1);
+  let mb2=createBall(200,300,true);mb2.inLane=false;mb2.vx=-2;mb2.vy=-4;balls.push(mb2);
 }
 function launch(){
   if(!balls.length||balls[0].active)return;
   balls[0].active=true;launching=false;
-  // Power-based launch: hold longer = more power (max 20)
-  // Light tap = weak dribble, full hold = rocket to the top
-  const pwr=Math.max(plungerPower,2); // minimum so ball always moves
-  const launchVy=-(pwr*0.35+2); // ranges from -2.7 (tap) to -9 (full power)
-  balls[0].vy=launchVy;balls[0].vx=0;
+  // Launch straight UP the shooter lane — the curved rail at top will redirect onto playfield
+  const launchPower=Math.max(plungerPower,5); // minimum power ensures ball always reaches top
+  balls[0].vy=-launchPower*0.45-6;balls[0].vx=0;
   balls[0].inLane=true;
-  ballSaveTimer=300;
-  // Skill shot: need precise medium power (60-80% range)
+  ballSaveTimer=300; // 5 seconds at 60fps
+  // Skill shot check
   if(skillShotActive&&plungerPower>=12&&plungerPower<=16){
     addScore(2500);skillShotSound();
     spawnScorePopup(371,400,'SKILL SHOT!\n2500','#FFD700');
     showStatus('\u{1F3AF} SKILL SHOT! +2500');
   }
   skillShotActive=false;launchSound();
-  // Reset power meter visual
-  const pm=document.getElementById('powerMeter');if(pm)pm.style.height='0%';
 }
 
 function addScore(pts){
@@ -320,8 +302,8 @@ function updateBall(ball){
       ball.x=wallR-ball.r-5; // place ball just inside playfield right wall
       // Curve the ball left and slightly down — simulating the rail arc
       const speed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
-      ball.vx=-Math.max(speed*0.55,3); // leftward push proportional to launch power
-      ball.vy=Math.max(Math.abs(ball.vy)*0.2,0.5); // gentle downward
+      ball.vx=-Math.max(speed*0.65,5); // strong leftward push
+      ball.vy=Math.max(Math.abs(ball.vy)*0.25,1); // gentle downward
     }
     // If ball falls back to drain in the lane, let it drain normally
     if(ball.y>740){ball.inLane=false;return false}
@@ -339,11 +321,8 @@ function updateBall(ball){
     if(col){
       ball.x+=col.nx*(col.overlap+2);ball.y+=col.ny*(col.overlap+2);
       const speed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
-      // Realistic bumper: reflects direction and adds a moderate kick
-      // Doesn't override ball speed entirely — adds to it
-      const kickSpeed=Math.max(speed*0.5,1.5)*BUMPER_BOUNCE+1.5;
-      ball.vx=col.nx*kickSpeed;
-      ball.vy=col.ny*kickSpeed;
+      ball.vx=col.nx*Math.max(speed,3)*BUMPER_BOUNCE;
+      ball.vy=col.ny*Math.max(speed,3)*BUMPER_BOUNCE;
       b.cd=8; // 8-frame cooldown prevents rapid re-hits
       addScore(b.pts);bumpSound();addFlasher(b);updateCombo();
       if(particles.length<200){for(let i=0;i<8;i++)spawnParticle(b.x,b.y,b.glow)}
@@ -357,25 +336,22 @@ function updateBall(ball){
     }
   }
 
-  // Flippers — realistic angular momentum transfer
+  // Flippers
   const lc=flipperCollision(flippers.left,ball.x,ball.y,ball.r,'left');
   if(lc){ball.x+=lc.nx*lc.overlap;ball.y+=lc.ny*lc.overlap;
-    const power=lc.flipping?FLIPPER_POWER:FLIPPER_HOLD_POWER;
-    // Ball velocity depends on where it hits the flipper (tip = more power)
-    ball.vx=lc.nx*power*0.7;ball.vy=lc.ny*power-1.5;if(lc.flipping)flipSound()}
+    const power=lc.flipping?8:2;ball.vx=lc.nx*power;ball.vy=lc.ny*power-2;if(lc.flipping)flipSound()}
   const rc=flipperCollision(flippers.right,ball.x,ball.y,ball.r,'right');
   if(rc){ball.x+=rc.nx*rc.overlap;ball.y+=rc.ny*rc.overlap;
-    const power=rc.flipping?FLIPPER_POWER:FLIPPER_HOLD_POWER;
-    ball.vx=rc.nx*power*0.7;ball.vy=rc.ny*power-1.5;if(rc.flipping)flipSound()}
+    const power=rc.flipping?8:2;ball.vx=rc.nx*power;ball.vy=rc.ny*power-2;if(rc.flipping)flipSound()}
 
-  // Slingshots — angled kickers above flippers
-  if(ball.x>50&&ball.x<120&&ball.y>600&&ball.y<670){
-    const wx=ball.x-50,wy=ball.y-600;
-    if(wx<wy*0.5&&ball.vx<1){ball.vx+=2.5;ball.vy-=1.5;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
+  // Slingshots
+  if(ball.x>60&&ball.x<130&&ball.y>580&&ball.y<660){
+    const wx=ball.x-60,wy=ball.y-580;
+    if(wx<wy*0.5&&ball.vx<1){ball.vx+=3;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
-  if(ball.x>260&&ball.x<330&&ball.y>600&&ball.y<670){
-    const wx=330-ball.x,wy=ball.y-600;
-    if(wx<wy*0.5&&ball.vx>-1){ball.vx-=2.5;ball.vy-=1.5;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
+  if(ball.x>270&&ball.x<335&&ball.y>580&&ball.y<660){
+    const wx=335-ball.x,wy=ball.y-580;
+    if(wx<wy*0.5&&ball.vx>-1){ball.vx-=3;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
 
   // Drop targets (3 bank at y=500)
@@ -403,11 +379,11 @@ function updateBall(ball){
   // Kickbacks (outlane saves)
   if(ball.y>700&&ball.y<730){
     if(ball.x<45&&kickbackLeft){
-      kickbackLeft=false;ball.vx=3;ball.vy=-4;kickbackSound();
+      kickbackLeft=false;ball.vx=4;ball.vy=-6;kickbackSound();
       showStatus('\u{1F6E1}\uFE0F LEFT KICKBACK!');addScore(50);
     }
-    if(ball.x>335&&ball.x<345&&kickbackRight){
-      kickbackRight=false;ball.vx=-3;ball.vy=-4;kickbackSound();
+    if(ball.x>335&&ball.x<355&&kickbackRight){
+      kickbackRight=false;ball.vx=-4;ball.vy=-6;kickbackSound();
       showStatus('\u{1F6E1}\uFE0F RIGHT KICKBACK!');addScore(50);
     }
   }
@@ -422,7 +398,7 @@ function updateBall(ball){
   // Drain
   if(ball.y>750){
     if(ballSaveTimer>0&&balls.length<=1){
-      ball.x=200;ball.y=600;ball.vx=0;ball.vy=-3;
+      ball.x=200;ball.y=600;ball.vx=0;ball.vy=-5;
       showStatus('\u{1F4AB} BALL SAVED!');ballSaveTimer=0;return true;
     }
     return false;
@@ -442,10 +418,7 @@ function update(){
   if(tiltCooldown>0)tiltCooldown--;
 
   if(launching&&!balls[0]?.active){
-    if(plungerHeld&&plungerPower<20)plungerPower+=0.25;
-    // Update power meter visual
-    const pm=document.getElementById('powerMeter');
-    if(pm)pm.style.height=(plungerPower/20*100)+'%';
+    if(plungerPower<20)plungerPower+=0.3;
     return;
   }
 
@@ -534,27 +507,15 @@ function draw(){
   ctx.fillStyle='#44ddff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
   ctx.fillText('200',100,55);ctx.fillText('200',190,55);ctx.fillText('200',280,55);
 
-  // Slingshots — triangular kickers above flippers
+  // Slingshots
   ctx.strokeStyle='#FF6B35';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(50,600);ctx.lineTo(90,670);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(330,600);ctx.lineTo(290,670);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(60,580);ctx.lineTo(100,660);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(335,580);ctx.lineTo(295,660);ctx.stroke();
 
-  // V-shaped drain guides — standard pinball funnel toward drain
-  ctx.fillStyle='#1a1a2e';
-  // Left guide wall (from playfield wall to left flipper)
-  ctx.beginPath();ctx.moveTo(15,640);ctx.lineTo(80,700);ctx.lineTo(15,700);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='#FF6B3588';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(15,640);ctx.lineTo(80,700);ctx.stroke();
-  // Right guide wall (from playfield wall to right flipper)
-  ctx.beginPath();ctx.moveTo(345,640);ctx.lineTo(300,700);ctx.lineTo(345,700);ctx.closePath();
-  ctx.fillStyle='#1a1a2e';ctx.fill();
-  ctx.strokeStyle='#FF6B3588';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(345,640);ctx.lineTo(300,700);ctx.stroke();
-
-  // Outlane and inlane separators
-  ctx.strokeStyle='#FF6B3544';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(45,660);ctx.lineTo(45,710);ctx.stroke(); // left outlane separator
-  ctx.beginPath();ctx.moveTo(335,660);ctx.lineTo(335,710);ctx.stroke(); // right outlane separator
+  // Gutters
+  ctx.fillStyle='#111';
+  ctx.beginPath();ctx.moveTo(15,740);ctx.lineTo(120,710);ctx.lineTo(15,710);ctx.fill();
+  ctx.beginPath();ctx.moveTo(345,740);ctx.lineTo(260,710);ctx.lineTo(345,710);ctx.fill();
 
   // Kickback indicators
   if(kickbackLeft){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(16,700,12,30);ctx.globalAlpha=1}
@@ -733,7 +694,7 @@ function loop(){update();draw();requestAnimationFrame(loop)}
 window.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft'||e.key==='z'||e.key==='Z')leftFlip=true;
   if(e.key==='ArrowRight'||e.key==='m'||e.key==='M')rightFlip=true;
-  if((e.key===' '||e.key==='ArrowDown')&&launching){plungerHeld=true;if(plungerPower===0)plungerPower=0}
+  if((e.key===' '||e.key==='ArrowDown')&&launching)plungerHeld=true;
   if(e.key==='t'||e.key==='T')nudge(1);
   if(e.key==='q'||e.key==='Q')nudge(-1);
   e.preventDefault();
@@ -751,11 +712,11 @@ btnL.addEventListener('touchstart',e=>{e.preventDefault();leftFlip=true});
 btnL.addEventListener('touchend',e=>{e.preventDefault();leftFlip=false});
 btnR.addEventListener('touchstart',e=>{e.preventDefault();rightFlip=true});
 btnR.addEventListener('touchend',e=>{e.preventDefault();rightFlip=false});
-btnP.addEventListener('touchstart',e=>{e.preventDefault();plungerHeld=true;plungerPower=0});
+btnP.addEventListener('touchstart',e=>{e.preventDefault();plungerHeld=true});
 btnP.addEventListener('touchend',e=>{e.preventDefault();plungerHeld=false;launch()});
 btnL.addEventListener('mousedown',()=>leftFlip=true);btnL.addEventListener('mouseup',()=>leftFlip=false);
 btnR.addEventListener('mousedown',()=>rightFlip=true);btnR.addEventListener('mouseup',()=>rightFlip=false);
-btnP.addEventListener('mousedown',()=>{plungerHeld=true;plungerPower=0});btnP.addEventListener('mouseup',()=>{plungerHeld=false;launch()});
+btnP.addEventListener('mousedown',()=>plungerHeld=true);btnP.addEventListener('mouseup',()=>{plungerHeld=false;launch()});
 
 // Device shake for tilt
 let lastAccel={x:0,y:0};
