@@ -104,16 +104,23 @@ function kickbackSound(){playSound(300,.15,'square',.1);playSound(500,.1,'sine',
 function dropTargetSound(){playSound(700,.1,'square',.08)}
 function comboSound(n){playSound(400+n*100,.15,'triangle',.1)}
 
-// Layout
+// Layout — table is taller than viewport, camera scrolls to follow ball
 let W,H,TW,TH,TX,TY,SCALE;
-const CTRL_HEIGHT=100; // reserve space for controls
+const CTRL_HEIGHT=90;
+const TABLE_W=400,TABLE_H=1400; // internal table dimensions (tall!)
+const VIEW_H=750; // viewport shows this much of the table at once
+// Camera
+let camY=0,camTargetY=0;
+const CAM_LERP_SLOW=0.02,CAM_LERP_FAST=0.08;
+let camLerp=CAM_LERP_SLOW;
+
 function resize(){
   W=window.innerWidth;H=window.innerHeight;C.width=W;C.height=H;
-  const ar=.52;
-  const availH=H-CTRL_HEIGHT-30; // space for HUD top + controls bottom
-  TH=availH;TW=Math.min(W-10,TH*ar);
-  if(TW>W-10){TW=W-10;TH=TW/ar}
-  TX=(W-TW)/2;TY=28;SCALE=TW/400;initTable();
+  const ar=TABLE_W/VIEW_H;
+  const availH=H-CTRL_HEIGHT-24;
+  TH=availH;TW=Math.min(W-8,TH*ar);
+  if(TW>W-8){TW=W-8;TH=TW/ar}
+  TX=(W-TW)/2;TY=20;SCALE=TW/TABLE_W;initTable();
 }
 
 // Physics — based on real pinball and top canvas pinball games
@@ -151,53 +158,64 @@ let shakeX=0,shakeY=0;
 let bumpers=[],flippers={};
 
 function initTable(){
+  // Spread elements across taller table (1400 units)
+  // Upper zone (100-400): targets, lanes, spinner
+  // Mid zone (400-700): character bumpers (the big 3)
+  // Lower-mid zone (700-1000): small bumpers, drop targets
+  // Lower zone (1000-1300): slingshots, flippers, drain
   bumpers=[
-    {x:200,y:230,r:35,pts:500,name:'buckee',color:'#FFD700',label:'B',glow:'#FFD700',cd:0},
-    {x:110,y:310,r:30,pts:300,name:'listy',color:'#44ff44',label:'L',glow:'#44ff44',cd:0},
-    {x:290,y:310,r:30,pts:300,name:'citty',color:'#8888ff',label:'C',glow:'#8888ff',cd:0},
-    {x:160,y:170,r:18,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35',cd:0},
-    {x:240,y:170,r:18,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35',cd:0},
-    {x:200,y:400,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
-    {x:130,y:440,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
-    {x:270,y:440,r:15,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
-    {x:150,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
-    {x:250,y:120,r:14,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
+    // Character bumpers — mid table (the main attractions)
+    {x:200,y:480,r:40,pts:500,name:'buckee',color:'#FFD700',label:'B',glow:'#FFD700',cd:0},
+    {x:100,y:600,r:35,pts:300,name:'listy',color:'#44ff44',label:'L',glow:'#44ff44',cd:0},
+    {x:300,y:600,r:35,pts:300,name:'citty',color:'#8888ff',label:'C',glow:'#8888ff',cd:0},
+    // Upper bumpers — orange
+    {x:150,y:300,r:20,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35',cd:0},
+    {x:250,y:300,r:20,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35',cd:0},
+    {x:200,y:350,r:18,pts:100,name:'',color:'#FF6B35',label:'',glow:'#FF6B35',cd:0},
+    // Lower bumpers — pink
+    {x:200,y:780,r:16,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
+    {x:120,y:840,r:16,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
+    {x:280,y:840,r:16,pts:50,name:'',color:'#ff4466',label:'',glow:'#ff4466',cd:0},
+    // Top bumpers — cyan
+    {x:140,y:180,r:15,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
+    {x:260,y:180,r:15,pts:75,name:'',color:'#44ddff',label:'',glow:'#44ddff',cd:0},
   ];
-  // Standard pinball flipper layout: V-shaped, positioned for proper drain geometry
-  // Flippers are ~30% from center, angled to create natural V funnel
+  // Flippers near bottom of tall table
   flippers={
-    left:{x:120,y:685,len:60,angle:0.35,restAngle:0.35,activeAngle:-0.65},
-    right:{x:260,y:685,len:60,angle:Math.PI-0.35,restAngle:Math.PI-0.35,activeAngle:Math.PI+0.65}
+    left:{x:120,y:1280,len:60,angle:0.35,restAngle:0.35,activeAngle:-0.65},
+    right:{x:260,y:1280,len:60,angle:Math.PI-0.35,restAngle:Math.PI-0.35,activeAngle:Math.PI+0.65}
   };
 }
 
-function createBall(x,y,active){return{x,y,vx:0,vy:0,r:8,active,trail:[],inLane:true}}
+function createBall(x,y,active){return{x,y,vx:0,vy:0,r:9,active,trail:[],inLane:true}}
 function resetBall(){
   if(ballsLeft<=0&&!multiballActive)return gameOver();
-  const b=createBall(371,700,false);
+  const b=createBall(371,1320,false);
   b.inLane=true;
   balls=[b];launching=true;plungerPower=0;skillShotActive=true;
   ballSaveTimer=0;multiballActive=false;
+  camLerp=CAM_LERP_SLOW;
 }
 function addMultiball(){
   multiballActive=true;multiballSound();
   showStatus('\u{1F525} MULTIBALL! \u{1F525}');
-  let mb1=createBall(200,300,true);mb1.inLane=false;mb1.vx=2.5;mb1.vy=-4;balls.push(mb1);
-  let mb2=createBall(200,300,true);mb2.inLane=false;mb2.vx=-2.5;mb2.vy=-5;balls.push(mb2);
+  let mb1=createBall(200,600,true);mb1.inLane=false;mb1.vx=2.5;mb1.vy=-4;balls.push(mb1);
+  let mb2=createBall(200,600,true);mb2.inLane=false;mb2.vx=-2.5;mb2.vy=-5;balls.push(mb2);
 }
 function launch(){
   if(!balls.length||balls[0].active)return;
   balls[0].active=true;launching=false;
   // Power-based launch: hold longer = more power (max 20)
-  // Math: with gravity 0.12, ball needs vy≈-13 to reach top (y=35 from y=700)
-  // Full power (20) → vy=-14 (reaches top with margin)
-  // Light tap (2) → vy=-4.1 (dribbles partway up lane)
-  // Medium (10) → vy=-8.5 (reaches mid-table)
+  // Taller table (1400 units), ball at y=1320 needs to reach y=60
+  // Distance = 1260 units. With gravity 0.12: v = sqrt(2*0.12*1260) = 17.4
+  // Full power (20) → vy=-19 (reaches top comfortably)
+  // Light tap (2) → vy=-5 (dribbles partway)
   const pwr=Math.max(plungerPower,2);
-  const launchVy=-(pwr*0.55+3); // ranges from -4.1 (tap) to -14 (full hold)
+  const launchVy=-(pwr*0.8+3.4); // ranges from -5 (tap) to -19.4 (full hold)
   balls[0].vy=launchVy;balls[0].vx=0;
   balls[0].inLane=true;
   ballSaveTimer=300;
+  camLerp=CAM_LERP_FAST; // camera starts tracking ball
   // Skill shot: need precise medium power (60-80% range)
   if(skillShotActive&&plungerPower>=12&&plungerPower<=16){
     addScore(2500);skillShotSound();
@@ -307,7 +325,7 @@ function updateBall(ball){
 
   // Walls & Shooter Lane
   const wallL=30,wallR=345,plungerL=352,plungerR=390;
-  const RAIL_TOP=35; // where the curved rail bends the ball left
+  const RAIL_TOP=60; // where the curved rail bends the ball left
   const LANE_CX=(plungerL+plungerR)/2; // lane center x
   
   // Left wall — rubber rail bounce
@@ -331,12 +349,12 @@ function updateBall(ball){
       ball.vy=Math.max(Math.abs(ball.vy)*0.15,0.8); // gentle downward
     }
     // If ball falls back to drain in the lane, let it drain normally
-    if(ball.y>740){ball.inLane=false;return false}
+    if(ball.y>1360){ball.inLane=false;return false}
   } else {
     // Normal playfield walls — right wall blocks re-entry to lane
     if(ball.x+ball.r>wallR){ball.x=wallR-ball.r;ball.vx=-Math.abs(ball.vx)*BOUNCE}
     // Top wall for playfield
-    if(ball.y-ball.r<15){ball.y=15+ball.r;ball.vy=Math.abs(ball.vy)*BOUNCE}
+    if(ball.y-ball.r<40){ball.y=40+ball.r;ball.vy=Math.abs(ball.vy)*BOUNCE}
   }
 
   // Bumpers (with cooldown to prevent infinite bounce trap)
@@ -387,20 +405,20 @@ function updateBall(ball){
       ball.vx-=2*dot*rc.nx*0.5;ball.vy=-Math.abs(ball.vy)*FLIPPER_HOLD_POWER*0.3;
     }}
 
-  // Slingshots — rubber-band kickers above flippers (like real pinball)
-  if(ball.x>50&&ball.x<120&&ball.y>600&&ball.y<670){
-    const wx=ball.x-50,wy=ball.y-600;
+  // Slingshots — rubber-band kickers above flippers
+  if(ball.x>50&&ball.x<120&&ball.y>1190&&ball.y<1260){
+    const wx=ball.x-50,wy=ball.y-1190;
     if(wx<wy*0.5&&ball.vx<2){ball.vx+=3.5;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
-  if(ball.x>260&&ball.x<330&&ball.y>600&&ball.y<670){
-    const wx=330-ball.x,wy=ball.y-600;
+  if(ball.x>260&&ball.x<330&&ball.y>1190&&ball.y<1260){
+    const wx=330-ball.x,wy=ball.y-1190;
     if(wx<wy*0.5&&ball.vx>-2){ball.vx-=3.5;ball.vy-=2;addScore(10);for(let i=0;i<4;i++)spawnParticle(ball.x,ball.y,'#FF6B35')}
   }
 
-  // Drop targets (3 bank at y=500)
+  // Drop targets (3 bank at y=950)
   for(let i=0;i<3;i++){
     if(!dropTargets[i])continue;
-    const dtx=160+i*40,dty=500;
+    const dtx=160+i*40,dty=950;
     if(Math.abs(ball.x-dtx)<15&&Math.abs(ball.y-dty)<10&&ball.vy>0){
       dropTargets[i]=false;ball.vy=-Math.abs(ball.vy)*0.8;
       addScore(200);dropTargetSound();updateCombo();
@@ -413,14 +431,14 @@ function updateBall(ball){
     }
   }
 
-  // Spinner (at x=200, y=150)
-  if(Math.abs(ball.x-200)<12&&Math.abs(ball.y-150)<15&&Math.abs(ball.vy)>2){
+  // Spinner (at x=200, y=250)
+  if(Math.abs(ball.x-200)<12&&Math.abs(ball.y-250)<15&&Math.abs(ball.vy)>2){
     spinnerSpeed=Math.abs(ball.vy)*2;
     addScore(25);spinnerSound();
   }
 
   // Kickbacks (outlane saves)
-  if(ball.y>700&&ball.y<730){
+  if(ball.y>1290&&ball.y<1330){
     if(ball.x<45&&kickbackLeft){
       kickbackLeft=false;ball.vx=4;ball.vy=-7;kickbackSound();
       showStatus('\u{1F6E1}\uFE0F LEFT KICKBACK!');addScore(50);
@@ -432,16 +450,16 @@ function updateBall(ball){
   }
 
   // Top lanes
-  if(ball.y<80&&ball.y>30){
-    if(ball.x>80&&ball.x<120){addScore(200);spawnScorePopup(100,50,'+200','#44ddff');for(let i=0;i<3;i++)spawnParticle(100,50,'#44ddff')}
-    if(ball.x>170&&ball.x<210){addScore(200);spawnScorePopup(190,50,'+200','#44ddff');for(let i=0;i<3;i++)spawnParticle(190,50,'#44ddff')}
-    if(ball.x>260&&ball.x<300){addScore(200);spawnScorePopup(280,50,'+200','#44ddff');for(let i=0;i<3;i++)spawnParticle(280,50,'#44ddff')}
+  if(ball.y<110&&ball.y>60){
+    if(ball.x>80&&ball.x<120){addScore(200);spawnScorePopup(100,80,'+200','#44ddff');for(let i=0;i<3;i++)spawnParticle(100,80,'#44ddff')}
+    if(ball.x>170&&ball.x<210){addScore(200);spawnScorePopup(190,80,'+200','#44ddff');for(let i=0;i<3;i++)spawnParticle(190,80,'#44ddff')}
+    if(ball.x>260&&ball.x<300){addScore(200);spawnScorePopup(280,80,'+200','#44ddff');for(let i=0;i<3;i++)spawnParticle(280,80,'#44ddff')}
   }
 
   // Drain
-  if(ball.y>750){
+  if(ball.y>1370){
     if(ballSaveTimer>0&&balls.length<=1){
-      ball.x=200;ball.y=600;ball.vx=0;ball.vy=-6;
+      ball.x=200;ball.y=1100;ball.vx=0;ball.vy=-6;
       showStatus('\u{1F4AB} BALL SAVED!');ballSaveTimer=0;return true;
     }
     return false;
@@ -478,6 +496,18 @@ function update(){
   
   decayCombo();
 
+  // Camera follows active ball with smooth lerp (Space Pinball style)
+  const activeBall=balls.find(b=>b.active);
+  if(activeBall){
+    camTargetY=activeBall.y-VIEW_H*0.4; // ball sits 40% from top of view
+    camLerp=CAM_LERP_FAST;
+  }else{
+    camTargetY=TABLE_H-VIEW_H; // show bottom (flippers) when no active ball
+    camLerp=CAM_LERP_SLOW;
+  }
+  camTargetY=Math.max(0,Math.min(camTargetY,TABLE_H-VIEW_H));
+  camY+=(camTargetY-camY)*camLerp;
+
   // Update all balls
   for(let i=balls.length-1;i>=0;i--){
     if(!updateBall(balls[i])){
@@ -512,76 +542,85 @@ function updateBallsDisplay(){
 
 function draw(){
   ctx.clearRect(0,0,W,H);ctx.save();
+  // Clip to table viewport area
+  ctx.beginPath();ctx.rect(TX-2,TY-2,TW+4,TH+4);ctx.clip();
+  // Camera transform — scroll the table based on ball position
   ctx.translate(TX+shakeX,TY+shakeY);ctx.scale(SCALE,SCALE);
+  ctx.translate(0,-camY); // ← THE CAMERA SCROLL
 
-  // Table bg with gradient
-  const tbg=ctx.createLinearGradient(15,10,15,740);
-  tbg.addColorStop(0,'#1A1A2E');tbg.addColorStop(0.5,'#16213E');tbg.addColorStop(1,'#1A1A2E');
-  ctx.fillStyle=tbg;ctx.fillRect(15,10,330,730);
-  // Shooter lane background (slightly darker, wider lane)
-  ctx.fillStyle='#0e1525';ctx.fillRect(352,20,38,720);
+  // Table bg with gradient (full tall table)
+  const tbg=ctx.createLinearGradient(15,30,15,TABLE_H);
+  tbg.addColorStop(0,'#0D1B2A');tbg.addColorStop(0.3,'#1A1A2E');tbg.addColorStop(0.6,'#16213E');tbg.addColorStop(1,'#0D1B2A');
+  ctx.fillStyle=tbg;ctx.fillRect(15,30,330,TABLE_H-30);
+  // Shooter lane background
+  ctx.fillStyle='#0a1220';ctx.fillRect(352,40,38,TABLE_H-40);
 
-  // Neon border — playfield
+  // Neon border — playfield (full height)
   ctx.shadowColor='#FF6B35';ctx.shadowBlur=8;
   ctx.strokeStyle='#FF6B35';ctx.lineWidth=3;
-  ctx.strokeRect(15,10,330,730);
-  // Shooter lane border (wider)
-  ctx.strokeRect(352,20,38,720);
+  ctx.strokeRect(15,30,330,TABLE_H-30);
+  // Shooter lane border
+  ctx.strokeRect(352,40,38,TABLE_H-40);
   // Curved rail connecting shooter lane top to playfield
   ctx.beginPath();
-  ctx.moveTo(352,20);
-  ctx.quadraticCurveTo(350,10,335,10);
+  ctx.moveTo(352,40);
+  ctx.quadraticCurveTo(350,32,335,30);
   ctx.stroke();
   // Divider wall between playfield and lane
   ctx.strokeStyle='#FF6B35';ctx.lineWidth=3;
-  ctx.beginPath();ctx.moveTo(345,60);ctx.lineTo(345,740);ctx.stroke();
-  // Rail curve indicator — glowing guide showing where ball enters playfield
+  ctx.beginPath();ctx.moveTo(345,80);ctx.lineTo(345,TABLE_H);ctx.stroke();
+  // Rail curve indicator
   ctx.strokeStyle='#44ddff66';ctx.lineWidth=3;
   ctx.beginPath();
-  ctx.moveTo(352,35);
-  ctx.quadraticCurveTo(348,20,330,15);
+  ctx.moveTo(352,60);
+  ctx.quadraticCurveTo(348,42,330,35);
   ctx.stroke();
   // Lane label
   ctx.fillStyle='#FF6B3566';ctx.font='bold 8px sans-serif';ctx.textAlign='center';
-  ctx.fillText('SHOOT',371,80);
+  ctx.fillText('SHOOT',371,100);
   ctx.shadowBlur=0;
 
-  // Lanes
+  // Top Lanes
   ctx.globalAlpha=0.2;ctx.fillStyle='#44ddff';
-  ctx.fillRect(80,20,40,60);ctx.fillRect(170,20,40,60);ctx.fillRect(260,20,40,60);
+  ctx.fillRect(80,50,40,60);ctx.fillRect(170,50,40,60);ctx.fillRect(260,50,40,60);
   ctx.globalAlpha=1;
   ctx.fillStyle='#44ddff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
-  ctx.fillText('200',100,55);ctx.fillText('200',190,55);ctx.fillText('200',280,55);
+  ctx.fillText('200',100,85);ctx.fillText('200',190,85);ctx.fillText('200',280,85);
 
-  // Slingshots — triangular kickers above flippers
+  // Decorative ramp lines (upper section)
+  ctx.strokeStyle='#FF6B3533';ctx.lineWidth=1;
+  for(let y=130;y<400;y+=50){
+    ctx.beginPath();ctx.moveTo(40,y);ctx.lineTo(60,y-20);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(340,y);ctx.lineTo(320,y-20);ctx.stroke();
+  }
+
+  // Slingshots — above flippers
   ctx.strokeStyle='#FF6B35';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(50,600);ctx.lineTo(90,670);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(330,600);ctx.lineTo(290,670);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(50,1190);ctx.lineTo(90,1260);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(330,1190);ctx.lineTo(290,1260);ctx.stroke();
 
-  // V-shaped drain guides — standard pinball funnel toward drain
-  ctx.fillStyle='#1a1a2e';
-  // Left guide wall (from playfield wall to left flipper)
-  ctx.beginPath();ctx.moveTo(15,640);ctx.lineTo(80,700);ctx.lineTo(15,700);ctx.closePath();ctx.fill();
+  // V-shaped drain guides
+  ctx.fillStyle='#0D1B2A';
+  ctx.beginPath();ctx.moveTo(15,1230);ctx.lineTo(80,1295);ctx.lineTo(15,1295);ctx.closePath();ctx.fill();
   ctx.strokeStyle='#FF6B3588';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(15,640);ctx.lineTo(80,700);ctx.stroke();
-  // Right guide wall (from playfield wall to right flipper)
-  ctx.beginPath();ctx.moveTo(345,640);ctx.lineTo(300,700);ctx.lineTo(345,700);ctx.closePath();
-  ctx.fillStyle='#1a1a2e';ctx.fill();
+  ctx.beginPath();ctx.moveTo(15,1230);ctx.lineTo(80,1295);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(345,1230);ctx.lineTo(300,1295);ctx.lineTo(345,1295);ctx.closePath();
+  ctx.fillStyle='#0D1B2A';ctx.fill();
   ctx.strokeStyle='#FF6B3588';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(345,640);ctx.lineTo(300,700);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(345,1230);ctx.lineTo(300,1295);ctx.stroke();
 
-  // Outlane and inlane separators
+  // Outlane/inlane separators
   ctx.strokeStyle='#FF6B3544';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(45,660);ctx.lineTo(45,710);ctx.stroke(); // left outlane separator
-  ctx.beginPath();ctx.moveTo(335,660);ctx.lineTo(335,710);ctx.stroke(); // right outlane separator
+  ctx.beginPath();ctx.moveTo(45,1250);ctx.lineTo(45,1310);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(335,1250);ctx.lineTo(335,1310);ctx.stroke();
 
   // Kickback indicators
-  if(kickbackLeft){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(16,700,12,30);ctx.globalAlpha=1}
-  if(kickbackRight){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(333,700,12,30);ctx.globalAlpha=1}
+  if(kickbackLeft){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(16,1290,12,30);ctx.globalAlpha=1}
+  if(kickbackRight){ctx.fillStyle='#44ff44';ctx.globalAlpha=0.4;ctx.fillRect(333,1290,12,30);ctx.globalAlpha=1}
 
   // Drop targets
   for(let i=0;i<3;i++){
-    const dtx=160+i*40,dty=500;
+    const dtx=160+i*40,dty=950;
     if(dropTargets[i]){
       ctx.fillStyle='#ff44ff';ctx.shadowColor='#ff44ff';ctx.shadowBlur=6;
       ctx.fillRect(dtx-12,dty-4,24,8);ctx.shadowBlur=0;
@@ -591,7 +630,7 @@ function draw(){
   }
 
   // Spinner
-  ctx.save();ctx.translate(200,150);ctx.rotate(spinnerAngle);
+  ctx.save();ctx.translate(200,250);ctx.rotate(spinnerAngle);
   ctx.strokeStyle=spinnerSpeed>1?'#FFD700':'#888';ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(-10,0);ctx.lineTo(10,0);ctx.stroke();
   ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(0,10);ctx.stroke();
@@ -642,7 +681,7 @@ function draw(){
   // Ball save indicator
   if(ballSaveTimer>0){
     ctx.globalAlpha=0.3+Math.sin(Date.now()*0.01)*0.2;
-    ctx.fillStyle='#44ff44';ctx.fillRect(120,735,160,5);
+    ctx.fillStyle='#44ff44';ctx.fillRect(120,1340,160,5);
     ctx.globalAlpha=1;
   }
 
@@ -664,15 +703,15 @@ function draw(){
       ctx.fillStyle='#ddd';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();
       ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ball.x-2,ball.y-2,ball.r*0.4,0,Math.PI*2);ctx.fill();
     }else{
-      const py=700-plungerPower*3;
+      const py=1320-plungerPower*3;
       ctx.fillStyle='#ddd';ctx.beginPath();ctx.arc(371,py,ball.r,0,Math.PI*2);ctx.fill();
       // Plunger rod
-      ctx.fillStyle='#FF6B35';ctx.fillRect(364,py+ball.r,14,740-py-ball.r);
+      ctx.fillStyle='#FF6B35';ctx.fillRect(364,py+ball.r,14,1360-py-ball.r);
       // Plunger base
-      ctx.fillStyle='#cc5522';ctx.fillRect(358,732,26,8);
-      // Skill shot zone indicator (green zone on lane wall)
+      ctx.fillStyle='#cc5522';ctx.fillRect(358,1352,26,8);
+      // Skill shot zone indicator
       if(skillShotActive){
-        const greenY=700-16*3,greenH=700-12*3-greenY;
+        const greenY=1320-16*3,greenH=1320-12*3-greenY;
         ctx.fillStyle='#44ff4444';ctx.fillRect(353,greenY,3,greenH);
         ctx.fillStyle='#44ff44';ctx.font='bold 7px sans-serif';ctx.textAlign='center';
         ctx.fillText('SKILL',371,greenY-4);
@@ -701,22 +740,28 @@ function draw(){
   }
   ctx.globalAlpha=1;
 
-  // Tilt warning
+  // Tilt warning — draw relative to camera so it's always visible
   if(tilted){
     ctx.globalAlpha=0.3+Math.sin(Date.now()*0.02)*0.2;
     ctx.fillStyle='#ff0000';ctx.font='bold 40px sans-serif';ctx.textAlign='center';
-    ctx.fillText('TILT',195,400);ctx.globalAlpha=1;
+    ctx.fillText('TILT',195,camY+VIEW_H/2);ctx.globalAlpha=1;
   }
 
-  // Branding
+  // Branding at bottom of table
   ctx.fillStyle='#FF6B3544';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
-  ctx.fillText('citybucketlist.com',195,725);
+  ctx.fillText('citybucketlist.com',195,TABLE_H-20);
 
   // Level indicator
   if(level>1){
     ctx.fillStyle='#FFD70066';ctx.font='bold 10px sans-serif';
-    ctx.fillText('LEVEL '+level,195,738);
+    ctx.fillText('LEVEL '+level,195,TABLE_H-8);
   }
+
+  // Section labels (decorative, scrolls with table)
+  ctx.fillStyle='#FF6B3522';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+  ctx.fillText('★ ADVENTURE ZONE ★',190,140);
+  ctx.fillText('★ BUCKET LIST ★',190,440);
+  ctx.fillText('★ BONUS ALLEY ★',190,920);
 
   ctx.restore();
 }
